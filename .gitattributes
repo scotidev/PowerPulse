@@ -5,37 +5,32 @@
 #
 # This template is maintained from the gitattributes/gitattributes repository
 # and distributed under MIT License.
-
 # Define macros (only works in top-level gitattributes files)
 [attr]lfs               filter=lfs diff=lfs merge=lfs -text
 [attr]unity-json        eol=lf linguist-language=json
 [attr]unity-yaml        merge=unityyamlmerge eol=lf linguist-language=yaml
-
 # Optionally collapse Unity YAML files on GitHub diffs
 # [attr]unity-yaml        merge=unityyamlmerge text linguist-language=yaml linguist-generated
-
 # Unity source files
 *.cginc                 text
-*.compute               text linguist-language=hlsl
+*.compute filter=lfs diff=lfs merge=lfs -text
 *.cs                    text diff=csharp
 *.hlsl                  text linguist-language=hlsl
 *.raytrace              text linguist-language=hlsl
-*.shader                text
+*.shader filter=lfs diff=lfs merge=lfs -text
 *.cginc                 text linguist-vendored
 *.compute               text linguist-language=hlsl linguist-vendored
 *.cs                    text diff=csharp
 *.hlsl                  text linguist-language=hlsl linguist-vendored
 *.raytrace              text linguist-language=hlsl linguist-vendored
 *.shader                text linguist-vendored
-
 # Unity JSON files
 *.asmdef                unity-json
 *.asmref                unity-json
 *.index                 unity-json
 *.inputactions          unity-json
-*.shadergraph           unity-json linguist-vendored
+*.shadergraph filter=lfs diff=lfs merge=lfs -text
 *.shadersubgraph        unity-json linguist-vendored
-
 # Unity JSON files
 *.asmdef                unity-json
 *.asmref                unity-json
@@ -43,52 +38,46 @@
 *.inputactions          unity-json
 *.shadergraph           unity-json
 *.shadersubgraph        unity-json
-
 # Unity UI Toolkit files
 *.tss                   text diff=css linguist-language=css
 *.uss                   text diff=css linguist-language=css
 *.uxml                  text linguist-language=xml linguist-detectable
-
 # Unity YAML files
-*.anim                  unity-yaml
-*.asset                 unity-yaml
+*.anim filter=lfs diff=lfs merge=lfs -text
+*.asset filter=lfs diff=lfs merge=lfs -text
 *.brush                 unity-yaml
-*.controller            unity-yaml
-*.flare                 unity-yaml
-*.fontsettings          unity-yaml
+*.controller filter=lfs diff=lfs merge=lfs -text
+*.flare filter=lfs diff=lfs merge=lfs -text
+*.fontsettings filter=lfs diff=lfs merge=lfs -text
 *.giparams              unity-yaml
-*.guiskin               unity-yaml
-*.lighting              unity-yaml
-*.mask                  unity-yaml
-*.mat                   unity-yaml
+*.guiskin filter=lfs diff=lfs merge=lfs -text
+*.lighting filter=lfs diff=lfs merge=lfs -text
+*.mask filter=lfs diff=lfs merge=lfs -text
+*.mat filter=lfs diff=lfs merge=lfs -text
 *.meta                  unity-yaml
-*.mixer                 unity-yaml
-*.overrideController    unity-yaml
+*.mixer filter=lfs diff=lfs merge=lfs -text
+*.overrideController filter=lfs diff=lfs merge=lfs -text
 *.playable              unity-yaml
-*.prefab                unity-yaml
+*.prefab filter=lfs diff=lfs merge=lfs -text
 *.preset                unity-yaml
-*.renderTexture         unity-yaml
+*.renderTexture filter=lfs diff=lfs merge=lfs -text
 *.scenetemplate         unity-yaml
-*.shadervariants        unity-yaml
+*.shadervariants filter=lfs diff=lfs merge=lfs -text
 *.signal                unity-yaml
-*.spriteatlas           unity-yaml
+*.spriteatlas filter=lfs diff=lfs merge=lfs -text
 *.spriteatlasv2         unity-yaml
 *.terrainlayer          unity-yaml
-*.unity                 unity-yaml
-
+*.unity filter=lfs diff=lfs merge=lfs -text
 # "physic" for 3D but "physics" for 2D
-*.physicMaterial        unity-yaml
+*.physicMaterial filter=lfs diff=lfs merge=lfs -text
 *.physicsMaterial2D     unity-yaml
-
 # Exclude from GitHub stats and diffs: third-party plugins, packages lock file
 Assets/Plugins/**           linguist-generated
 Packages/packages-lock.json linguist-generated
 Packages/**             linguist-vendored
-
 # Unity LFS
 *.cubemap               lfs
 *.unitypackage          lfs
-
 # 3D models
 *.3dm                   lfs
 *.3ds                   lfs
@@ -111,7 +100,6 @@ Packages/**             linguist-vendored
 *.skp                   lfs
 *.stl                   lfs
 *.ztl                   lfs
-
 # Audio
 *.aif                   lfs
 *.aiff                  lfs
@@ -122,7 +110,6 @@ Packages/**             linguist-vendored
 *.s3m                   lfs
 *.wav                   lfs
 *.xm                    lfs
-
 # Video
 *.asf                   lfs
 *.avi                   lfs
@@ -133,7 +120,6 @@ Packages/**             linguist-vendored
 *.mpg                   lfs
 *.ogv                   lfs
 *.wmv                   lfs
-
 # Images
 *.bmp                   lfs
 *.exr                   lfs
@@ -149,7 +135,6 @@ Packages/**             linguist-vendored
 *.tif                   lfs
 *.tiff                  lfs
 *.webp                  lfs
-
 # Compressed Archive
 *.7z                    lfs
 *.bz2                   lfs
@@ -157,30 +142,67 @@ Packages/**             linguist-vendored
 *.rar                   lfs
 *.tar                   lfs
 *.zip                   lfs
-
 # Compiled Dynamic Library
 *.dll                   lfs
 *.pdb                   lfs
 *.so                    lfs
-
 # Fonts
 *.otf                   lfs
 *.ttf                   lfs
-
 # Executable/Installer
 *.apk                   lfs
 *.exe                   lfs
-
 # Documents
 *.pdf                   lfs
-
 # ETC
 *.a                     lfs
 *.reason                lfs
 *.rns                   lfs
-
 # Spine export file for Unity
 *.skel.bytes            lfs
-
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+*.vfx filter=lfs diff=lfs merge=lfs -text
+*.vfxmeta filter=lfs diff=lfs merge=lfs -text
+*.mtl filter=lfs diff=lfs merge=lfs -text
+*.lwo filter=lfs diff=lfs merge=lfs -text
+*.aab filter=lfs diff=lfs merge=lfs -text
+*.bytes filter=lfs diff=lfs merge=lfs -text
+*.db filter=lfs diff=lfs merge=lfs -text
+*.sqlite3 filter=lfs diff=lfs merge=lfs -text
+*.state filter=lfs diff=lfs merge=lfs -text
+*.blendTree filter=lfs diff=lfs merge=lfs -text
+*.animator filter=lfs diff=lfs merge=lfs -text
+*.scn filter=lfs diff=lfs merge=lfs -text
+*.sampleRate filter=lfs diff=lfs merge=lfs -text
+*.vrm filter=lfs diff=lfs merge=lfs -text
+*.dsp filter=lfs diff=lfs merge=lfs -text
+*.ipa filter=lfs diff=lfs merge=lfs -text
+*.xml filter=lfs diff=lfs merge=lfs -text
+*.txt filter=lfs diff=lfs merge=lfs -text
+*.sqlite filter=lfs diff=lfs merge=lfs -text
+*.lensflare filter=lfs diff=lfs merge=lfs -text
+*.bundle filter=lfs diff=lfs merge=lfs -text
+*.jar filter=lfs diff=lfs merge=lfs -text
+*.particle filter=lfs diff=lfs merge=lfs -text
+*.terrainData filter=lfs diff=lfs merge=lfs -text
+*.terrainLayer filter=lfs diff=lfs merge=lfs -text
+*.sql filter=lfs diff=lfs merge=lfs -text
+*.transition filter=lfs diff=lfs merge=lfs -text
+*.realm filter=lfs diff=lfs merge=lfs -text
+*.font filter=lfs diff=lfs merge=lfs -text
+*.statemachine filter=lfs diff=lfs merge=lfs -text
+*.app filter=lfs diff=lfs merge=lfs -text
+*.navMeshData filter=lfs diff=lfs merge=lfs -text
+*.animation filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
+*.mdb filter=lfs diff=lfs merge=lfs -text
+*.clip filter=lfs diff=lfs merge=lfs -text
+*.avatar filter=lfs diff=lfs merge=lfs -text
+*.framework filter=lfs diff=lfs merge=lfs -text
+*.tsv filter=lfs diff=lfs merge=lfs -text
+*.audioMixer filter=lfs diff=lfs merge=lfs -text
+*.json filter=lfs diff=lfs merge=lfs -text
+*.gltf filter=lfs diff=lfs merge=lfs -text
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.aar filter=lfs diff=lfs merge=lfs -text

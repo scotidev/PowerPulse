@@ -1,11 +1,3 @@
-{
-    "CustomInstructionsGUID": "",
-    "CheckpointEnabled": false,
-    "GitInstanceTypeValue": 0,
-    "CustomGitPath": "",
-    "CheckpointRetentionWeeks": 2,
-    "PlanExecutionPromptDismissed": false,
-    "CheckpointDiscoveryBannerDismissed": false,
-    "CheckpointDiscoveryUserDisabled": false,
-    "CheckpointDiscoveryFlowStarted": false
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:54ba37aabe4a7d2663325e93f66f063c6dcfdcad92316cbaddbad55fcbcb5698
+size 342

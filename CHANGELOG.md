@@ -15,6 +15,8 @@ and this project follows Semantic Versioning when versioned releases are created
   optimization, and delivery phases.
 - Renamed the working branch to `scotidev-gdd-game-planning`.
 - Added this changelog as the source of truth for completed implementation work.
+- Initialized Git LFS for Unity binary assets and configured `.gitattributes` with LFS tracking rules for `.asset`, `.prefab`, `.mat`, `.unity`, `.controller`, `.anim`, and other binary types.
+- Provided a full step-by-step guide for WebGL Player Settings configuration (portrait 1080×1920, VSync, URP, color space, Auto Graphics API, etc.).
 
 ### Changed
 

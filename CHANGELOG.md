@@ -7,6 +7,19 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
+## Fase 2 — Dados configuráveis
+
+### Added
+
+- `ColorId`, `ObstacleBehaviour` and `PowerUpType` enums.
+- `SO_ColorPalette`, `SO_ObstacleData` and `SO_PowerUpData` ScriptableObjects.
+- `Config_GameBalance` and `Config_InputSettings` ScriptableObjects.
+- Default data assets in `Assets/Core/ScriptableObjects/`: color palette, three obstacle sizes, four power-up types, game balance and input settings.
+
+### Changed
+
+- Reorganized the project structure: C# scripts moved into `Core/Scripts/Bootstrap`, `Core/Scripts/Managers` and `Core/Scripts/Enums`; ScriptableObjects moved into `Core/ScriptableObjects`.
+
 ## Fase 1 — Estrutura arquitetural
 
 ### Added

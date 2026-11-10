@@ -91,6 +91,8 @@ PowerPulse é um endless runner vertical neon. O jogador controla uma esfera de 
 
 ## Fase 2 — Dados configuráveis
 
+**Status:** concluída ✅
+
 Criar os ScriptableObjects que permitirão ajustar o jogo pelo Inspector:
 
 1. `SO_ColorPalette`

@@ -63,6 +63,8 @@ namespace PowerPulse.Core
             Canvas canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = short.MaxValue;
+            // Required so CanvasGroup.blocksRaycasts can actually intercept input.
+            canvasObject.AddComponent<GraphicRaycaster>();
 
             m_FadeGroup = canvasObject.AddComponent<CanvasGroup>();
             m_FadeGroup.alpha = 0f;

@@ -45,18 +45,16 @@ namespace PowerPulse.Core
             Object.DontDestroyOnLoad(sceneLoaderObject);
             ServiceLocator.Current.Register<ISceneLoader>(sceneLoader);
 
-            // --- Save Manager (PENDING) ---
-            // Uncomment when SaveManager is implemented.
-            // SaveManager saveManager = new SaveManager();
-            // ServiceLocator.Current.Register<ISaveService>(saveManager);
+            // --- Save Manager ---
+            SaveManager saveManager = new SaveManager();
+            ServiceLocator.Current.Register<ISaveService>(saveManager);
 
-            // --- Audio Manager (PENDING) ---
-            // Uncomment when AudioManager is implemented.
+            // --- Audio Manager ---
             // Needs a MonoBehaviour host for AudioSources.
-            // GameObject audioObject = new GameObject("Audio Manager");
-            // AudioManager audioManager = audioObject.AddComponent<AudioManager>();
-            // Object.DontDestroyOnLoad(audioObject);
-            // ServiceLocator.Current.Register<IAudioService>(audioManager);
+            GameObject audioObject = new GameObject("Audio Manager");
+            AudioManager audioManager = audioObject.AddComponent<AudioManager>();
+            Object.DontDestroyOnLoad(audioObject);
+            ServiceLocator.Current.Register<IAudioService>(audioManager);
 
             // NOTE: Layer 1 (persistent) services are the ONLY ones registered here.
             // Layer 2 systems (RunManager, ScoreManager, ColorManager, SpawnManager,

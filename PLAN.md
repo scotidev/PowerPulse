@@ -26,6 +26,8 @@ PowerPulse é um endless runner vertical neon. O jogador controla uma esfera de 
 
 ## Fase 0 — Preparação e critérios do projeto
 
+**Status:** concluída ✅
+
 1. Confirmar a versão da Unity e configurar o projeto para Unity 6000.6.4f1.
 2. Configurar o repositório:
    - Git LFS para arquivos binários.
@@ -49,6 +51,8 @@ PowerPulse é um endless runner vertical neon. O jogador controla uma esfera de 
 **Resultado:** projeto Unity configurado e pronto para receber sistemas, sem gameplay ainda.
 
 ## Fase 1 — Estrutura arquitetural
+
+**Status:** concluída ✅
 
 1. Criar os namespaces e pastas:
    - `Core`

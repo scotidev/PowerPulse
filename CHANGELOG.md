@@ -7,6 +7,20 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
+## Fase 3 — Fundação visual e física
+
+### Added
+
+- Pista com 1 plano largo e 6 faixas neon nas divisas (`LaneDark` e `NeonWhite`).
+- Jogador: esfera com material emissivo (`Player_Light`).
+- Global Volume com Bloom, Chromatic Aberration e Tonemapping.
+- Layers `Player`, `Obstacle`, `PowerUp`, `Portal` e `Track`.
+- Pastas `Environment/Lanes`, `Environment/Obstacles`, `Environment/PowerUps` e `Player`.
+
+### Changed
+
+- Cena `Game` com a base visual montada (plano, faixas, jogador, câmera e volume).
+
 ## Fase 2 — Dados configuráveis
 
 ### Added

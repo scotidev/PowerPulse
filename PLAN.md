@@ -126,29 +126,43 @@ Criar os ScriptableObjects que permitirão ajustar o jogo pelo Inspector:
 
 ## Fase 3 — Fundação visual e física
 
-1. Criar o cenário neon usando apenas primitivas:
+**Status:** não iniciada
+
+1. Pista em 5 lanes:
+   - Cinco planos, um por lane, cada um com 1 unidade de largura × 10 de comprimento.
+   - Seis faixas neon (cubos finos de 0,05 × 10) ao longo das divisas, com material emissivo.
+   - Criar um tile como prefab e instanciar 8× (a reciclagem entra na Fase 5).
+2. Definir escala:
+   - Largura da pista: 5 unidades (5 lanes × 1).
+   - Raio da esfera do jogador: 0,4 unidades.
+   - Altura do pulo: ~2 unidades.
+   - Tile de pista: 10 unidades de comprimento.
+   - Velocidade: 5–20 un/s (do `Config_GameBalance`).
+3. Criar o cenário neon usando apenas primitivas:
    - Esfera do jogador.
-   - Cubos e retângulos.
-   - Grid da pista.
+   - Cubos e retângulos (obstáculos e faixas).
    - Materiais emissivos.
-2. Configurar URP:
+4. Configurar URP:
    - Bloom.
    - Chromatic Aberration.
    - Tonemapping.
    - Volume global.
-3. Configurar layers e matriz de colisão:
+5. Configurar layers e matriz de colisão:
    - `Player`.
    - `Obstacle`.
    - `PowerUp`.
    - `Portal`.
    - `Track`.
-4. Definir escala:
-   - Largura das cinco lanes.
-   - Altura de salto.
-   - Distâncias de spawn.
-   - Tamanho dos tiles.
-5. Configurar a câmera fixa atrás e acima do jogador.
-6. Criar o prefab base do jogador.
+6. Configurar a câmera fixa atrás e acima do jogador:
+   - Posição `(0, 6, -8)`, olhando para `(0, 1, 10)`.
+   - FOV 60, near 0.3, far 100.
+7. Criar o prefab base do jogador:
+   - `Sphere` + material emissivo.
+   - `Rigidbody` (detecção contínua) + `SphereCollider` + `Trail Renderer`.
+8. Criar materiais:
+   - Cinco materiais emissivos (um por cor, baseados no `SO_ColorPalette`).
+   - Um material emissivo branco para as faixas neon.
+   - Um material escuro para os planos das lanes.
 
 **Validação:** cena visualmente legível em 1080x1920 e em diferentes proporções de tela.
 

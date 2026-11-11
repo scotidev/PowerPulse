@@ -156,40 +156,29 @@ Criar os ScriptableObjects que permitirão ajustar o jogo pelo Inspector:
 
 ## Fase 4 — Jogador e controles
 
-Dividir o jogador nos componentes previstos:
+**Status:** não iniciada
 
-1. `PlayerController`
-   - Dono único da posição.
-   - Controle de lane.
-   - Dash de exatamente uma lane.
-   - Limites laterais.
-   - Movimento independente da taxa de frames.
-2. `PlayerJump`
-   - Pulo vertical.
-   - Detecção de chão.
-   - Controle de estado no ar.
-   - Impedimento de pulos inválidos.
-3. `PlayerColor`
-   - Cor ativa.
-   - Cores desbloqueadas.
-   - Boost atual.
-   - Shield.
-   - Evento de alteração de cor.
-4. `PlayerCollision`
-   - Detecção de obstáculos.
-   - Coleta válida.
-   - Colisão fatal.
-   - Consumo de shield.
-   - Comunicação de morte e coleta.
-5. Configurar o Input System:
-   - Teclado: A/D, setas e Espaço.
-   - Touch: metade esquerda/direita para dash.
-   - Swipe para cima para pulo.
-6. Criar feedback inicial:
-   - Trail no dash.
-   - Pulso da esfera.
-   - Anel do shield.
-   - Animação simples de pulo.
+1. Input:
+   - Criar um novo Input Actions asset (`PowerPulseInputActions`).
+   - Ações `DashLeft`, `DashRight` e `Jump`.
+   - Teclado: A/D, ←/→ e Espaço.
+   - Control schemes: `Keyboard&Mouse` e `Touch`.
+2. `PlayerController` (lane + pulo, como o GDD):
+   - Dono único da posição; tem o `Rigidbody` e o `TrailRenderer`.
+   - Lê o input direto pelo Input System.
+   - Lane: dash de exatamente 1 lane, resposta imediata, limites em x = −2 a +2.
+   - Pulo: vertical, detecção de chão (raycast), estado no ar, sem pulo duplo.
+   - `Rigidbody` não-kinemático com detecção contínua.
+3. `PlayerColor` (base):
+   - Cor ativa, aplicada no material da esfera via `SO_ColorPalette`.
+   - Evento `OnColorChanged`.
+4. `PlayerCollision` (base):
+   - Detecção de trigger.
+   - Expõe os contatos (coleta/morte) para as Fases 6–9.
+5. Feedback:
+   - Trail no dash, pulso da esfera, anel do shield, animação simples de pulo.
+6. Pastas:
+   - `Assets/Player/Scripts/`.
 
 **Validação:** jogar manualmente usando teclado e touch simulado, verificando que cada input produz apenas uma ação.
 

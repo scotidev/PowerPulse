@@ -7,28 +7,74 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
+## Fase 6 — Obstáculos, coleta e pontuação
+
+### Added
+
+- `ScoreManager`: authority of the run. Owns the score, the local record, the active color, the unlocked colors, the shield flag and the active boost. Decides the collect/die rule (`CanCollect`), absorbs one incompatible collision when a shield is active and ends the run through the `IGameManager` state machine. Publishes `OnScoreChanged`, `OnShieldChanged`, `OnBoostChanged`, `OnColorChanged`, `OnCollected`, `OnPlayerDied` and `OnRecordBeaten`.
+- Obstacle behaviours in `Obstacle`: `Static`, `Moving`, `Faster`, `Tall` and `Wide`, with lateral movement clamped to the track edges.
+- Score by obstacle area (1x1 = 1, 2x1 = 2, 2x2 = 4) and recycling of the collected obstacle through the shared `ObjectPool`.
+- Shield/boost state mirrored on the player: `PlayerColor` reflects the `ScoreManager` state, shows/hides the shield visual and blinks between the boost colors.
+- `SpawnManager.ResetRun()` and `SetSpawningEnabled()` so the death handler does not permanently disable the component.
+
+### Changed
+
+- `PlayerCollision` now forwards every obstacle contact to the `ScoreManager` instead of only exposing the trigger event.
+- `SpawnManager` reads the colors in play from the `ScoreManager` (the hardcoded Phase 5 list remains only as fallback) and moves the obstacles laterally according to their behaviour.
+- `SpawnManager` stops spawning new obstacles when the player dies.
+- `PlayerCollision` no longer references the `ScoreManager`: it asks the `PlayerColor` on the same GameObject, which delegates the rule to the `ScoreManager`.
+- `PlayerDeath`: the player now has a visible death animation (blink + hide) before the run closes. The run only changes the global state to `GameOver` after the animation finishes, so the death is readable instead of looking like a freeze.
+
+## Fase 5 — Run básica e deslocamento da pista
+
+### Added
+
+- `RunManager`: owns the run progression (speed, distance, difficulty) and reacts to the global game state.
+- `TrackManager` and `TrackTile`: recycled track tiles moved toward the camera, keeping a constant number of active tiles.
+- `ObjectPool`: generic GameObject pool shared by track tiles and obstacles.
+- `SpawnManager`: first spawn pattern (one obstacle per row, random lane, safe spacing, initial safe distance).
+- Obstacle prefabs `Obstacle1x1` and `Obstacle1x2` with `Obstacle` component, trigger collider and `ObstacleCatalog` asset.
+
+### Changed
+
+- The track now looks infinite: tiles are recycled behind the camera and refilled at the front, with no unbounded growth in the Hierarchy.
+
+## Fase 4 — Jogador e controles
+
+### Added
+
+- `PowerPulseInputActions` Input Actions asset with `DashLeft`, `DashRight` and `Jump` (keyboard bindings and `Keyboard&Mouse` / `Touch` control schemes).
+- `PlayerController`: single owner of the player position, lane dash (exactly 1 lane, clamped from -2 to +2) and jump with ground raycast.
+- `PlayerColor`: active color applied to the player material.
+- `PlayerCollision`: trigger contact detection.
+- Trail renderer enabled during the dash.
+
+### Changed
+
+- The player uses a non-kinematic `Rigidbody` with continuous collision detection.
+
 ## Fase 3 — Fundação visual e física
 
 ### Added
 
-- Pista com 1 plano largo e 6 faixas neon nas divisas (`LaneDark` e `NeonWhite`).
-- Jogador: esfera com material emissivo (`Player_Light`).
-- Global Volume com Bloom, Chromatic Aberration e Tonemapping.
-- Layers `Player`, `Obstacle`, `PowerUp`, `Portal` e `Track`.
-- Pastas `Environment/Lanes`, `Environment/Obstacles`, `Environment/PowerUps` e `Player`.
+- Track plane with 6 neon lane strips (`LaneDark` and `NeonWhite` materials).
+- Player: emissive sphere material (`Player_Light`).
+- Global Volume with Bloom, Chromatic Aberration and Tonemapping.
+- Layers `Player`, `Obstacle`, `PowerUp`, `Portal` and `Track`.
+- Folders `Environment/Lanes`, `Environment/Obstacles`, `Environment/PowerUps` and `Player`.
 
 ### Changed
 
-- Cena `Game` com a base visual montada (plano, faixas, jogador, câmera e volume).
+- `Game` scene assembled with the visual base (plane, strips, player, camera and volume).
 
 ## Fase 2 — Dados configuráveis
 
 ### Added
 
 - `ColorId`, `ObstacleBehaviour` and `PowerUpType` enums.
-- `SO_ColorPalette`, `SO_ObstacleData` and `SO_PowerUpData` ScriptableObjects.
+- `SO_ColorPalette`, `SO_ObstacleCatalog` and `SO_PowerUpData` ScriptableObjects.
 - `Config_GameBalance` and `Config_InputSettings` ScriptableObjects.
-- Default data assets in `Assets/Core/ScriptableObjects/`: color palette, three obstacle sizes, four power-up types, game balance and input settings.
+- Default data assets in `Assets/Core/ScriptableObjects/`: color palette, obstacle catalog, four power-up types, game balance and input settings.
 
 ### Changed
 

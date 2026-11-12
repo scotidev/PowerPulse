@@ -40,16 +40,31 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("World Z below which an obstacle is recycled.")]
         private float m_RecycleZ = -15f;
 
+        [Header("Colors")]
+
+        [SerializeField, Tooltip("Score manager that owns the unlocked colors of the run.")]
+        private ScoreManager m_ScoreManager;
+
+        [Header("Movement")]
+
+        [SerializeField, Tooltip("Lateral speed of Moving obstacles in units per second.")]
+        private float m_MovingSpeed = 1.5f;
+
+        [SerializeField, Tooltip("Lateral speed of Faster obstacles in units per second.")]
+        private float m_FasterSpeed = 3f;
+
+        [SerializeField, Tooltip("Maximum number of obstacles spawned in the same row (safety rule: never block every lane).")]
+        private int m_MaxObstaclesPerRow = 1;
+
+        [Header("Lanes")]
+
         [SerializeField, Tooltip("Width of each lane in world units.")]
         private float m_LaneWidth = 1f;
 
         [SerializeField, Tooltip("Number of lanes on the track.")]
         private int m_LaneCount = 5;
 
-        // TEMPORARY (Phase 5): the active colors are hardcoded here because the
-        // ColorManager does not exist yet. In Phase 7/8 this list must be replaced
-        // by the colors unlocked in the ColorManager.
-        [SerializeField, Tooltip("TEMPORARY (Phase 5): colors used when spawning. Will come from the ColorManager in Phase 7/8.")]
+        [SerializeField, Tooltip("TEMPORARY (Phase 5): colors used when the ScoreManager is not assigned. Replaced by the ScoreManager in Phase 6.")]
         private List<ColorId> m_ActiveColors = new List<ColorId> { ColorId.Red, ColorId.Pink };
 
         [Header("Pooling")]
@@ -75,6 +90,7 @@ namespace PowerPulse.Core
 
         private readonly List<ActiveObstacle> m_ActiveObstacles = new List<ActiveObstacle>();
         private float m_DistanceSinceLastSpawn;
+        private bool m_IsSpawningEnabled = true;
 
         #endregion
 
@@ -105,6 +121,19 @@ namespace PowerPulse.Core
             }
 
             PrewarmObstacles();
+
+            if (m_ScoreManager != null)
+            {
+                m_ScoreManager.OnPlayerDied += HandlePlayerDied;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (m_ScoreManager != null)
+            {
+                m_ScoreManager.OnPlayerDied -= HandlePlayerDied;
+            }
         }
 
         private void Update()
@@ -116,7 +145,36 @@ namespace PowerPulse.Core
 
             float delta = Time.deltaTime * m_RunManager.Speed;
             MoveObstacles(delta);
-            TrySpawn(delta);
+
+            if (m_IsSpawningEnabled)
+            {
+                TrySpawn(delta);
+            }
+        }
+
+        #endregion
+
+
+        #region PUBLIC METHODS
+
+        /// <summary>
+        /// Resets the spawn state for a new run: clears every active obstacle and
+        /// the distance accumulator.
+        /// </summary>
+        public void ResetRun()
+        {
+            for (int i = 0; i < m_ActiveObstacles.Count; i++)
+            {
+                ActiveObstacle active = m_ActiveObstacles[i];
+                if (active.Instance != null)
+                {
+                    m_Pool.Release(active.Prefab, active.Instance);
+                }
+            }
+
+            m_ActiveObstacles.Clear();
+            m_DistanceSinceLastSpawn = 0f;
+            m_IsSpawningEnabled = true;
         }
 
         #endregion
@@ -151,12 +209,53 @@ namespace PowerPulse.Core
                 ActiveObstacle active = m_ActiveObstacles[i];
                 active.Instance.transform.position += Vector3.back * delta;
 
+                MoveObstacleLaterally(active.Instance, delta);
+
                 if (active.Instance.transform.position.z < m_RecycleZ)
                 {
                     m_Pool.Release(active.Prefab, active.Instance);
                     m_ActiveObstacles.RemoveAt(i);
                 }
             }
+        }
+
+        /// <summary>
+        /// Moves a single obstacle laterally according to its behaviour. The
+        /// SpawnManager stays the owner of the movement of every element.
+        /// </summary>
+        /// <param name="instance">Obstacle instance to move.</param>
+        /// <param name="delta">Distance moved by the track this frame.</param>
+        private void MoveObstacleLaterally(GameObject instance, float delta)
+        {
+            Obstacle component = instance.GetComponent<Obstacle>();
+
+            if (component == null || !component.IsMovable)
+            {
+                return;
+            }
+
+            float speed = component.Behaviour == ObstacleBehaviour.Faster ? m_FasterSpeed : m_MovingSpeed;
+            component.MoveLateral(speed * Time.deltaTime);
+        }
+
+        /// <summary>
+        /// Handles the player death: stops spawning new obstacles and lets the
+        /// existing ones keep moving so the death is readable.
+        /// </summary>
+        private void HandlePlayerDied()
+        {
+            m_IsSpawningEnabled = false;
+        }
+
+        /// <summary>
+        /// Enables or disables the spawning of new obstacles. Used when the run
+        /// starts again so the death handler does not permanently disable the
+        /// component.
+        /// </summary>
+        /// <param name="enabled">True to allow spawning.</param>
+        public void SetSpawningEnabled(bool enabled)
+        {
+            m_IsSpawningEnabled = enabled;
         }
 
         /// <summary>
@@ -209,10 +308,72 @@ namespace PowerPulse.Core
             }
 
             instance.transform.position = new Vector3(x, component.Size.y * 0.5f, m_TrackManager.FrontZ);
-            component.SetColor(m_ActiveColors[Random.Range(0, m_ActiveColors.Count)]);
+            component.SourcePrefab = prefab;
+            component.SetColor(GetRandomSpawnColor());
+            component.SetBehaviour(component.Behaviour, GetBehaviourSpeed(component.Behaviour));
 
             ActiveObstacle active = new ActiveObstacle { Prefab = prefab, Instance = instance };
             m_ActiveObstacles.Add(active);
+        }
+
+        /// <summary>
+        /// Returns a random color among the colors currently in play. The pool is
+        /// the active color plus every unlocked color plus every boost color —
+        /// that is exactly the variety the player is trained to read, and it is
+        /// always a fair death (the color was announced by the portal/boost).
+        /// Falls back to the temporary list when the ScoreManager is not assigned.
+        /// </summary>
+        /// <returns>A color to paint the spawned obstacle.</returns>
+        private ColorId GetRandomSpawnColor()
+        {
+            if (m_ScoreManager != null)
+            {
+                List<ColorId> pool = new List<ColorId> { m_ScoreManager.ActiveColor };
+
+                List<ColorId> unlocked = m_ScoreManager.UnlockedColors;
+
+                if (unlocked != null && unlocked.Count > 0)
+                {
+                    pool.AddRange(unlocked);
+                }
+
+                List<ColorId> boost = m_ScoreManager.BoostColors;
+
+                if (boost != null && boost.Count > 0)
+                {
+                    pool.AddRange(boost);
+                }
+
+                return pool[Random.Range(0, pool.Count)];
+            }
+
+            if (m_ActiveColors.Count == 0)
+            {
+                Debug.LogError("[SpawnManager] No color is available to spawn obstacles.", this);
+                return ColorId.Red;
+            }
+
+            return m_ActiveColors[Random.Range(0, m_ActiveColors.Count)];
+        }
+
+        /// <summary>
+        /// Returns the lateral speed for the given behaviour.
+        /// </summary>
+        /// <param name="behaviour">Behaviour of the obstacle.</param>
+        /// <returns>Lateral speed in units per second.</returns>
+        private float GetBehaviourSpeed(ObstacleBehaviour behaviour)
+        {
+            switch (behaviour)
+            {
+                case ObstacleBehaviour.Faster:
+                    return m_FasterSpeed;
+
+                case ObstacleBehaviour.Moving:
+                    return m_MovingSpeed;
+
+                default:
+                    return 0f;
+            }
         }
 
         #endregion

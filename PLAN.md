@@ -12,6 +12,26 @@ Decisões confirmadas:
 - Usar o jogador praticamente parado no eixo Z, enquanto a pista e os objetos se movem em direção à câmera.
 - Identificar os elementos exclusivamente por cor, sem sistema adicional de acessibilidade nesta fase.
 - Fazer validação por testes manuais dentro da Unity.
+- Manter o `GDD.pdf` como referência e registrar as divergências em `GDD_NOTES.md` (o PDF é uma exportação do Notion e não deve ser regenerado).
+
+## Estado atual
+
+| Fase | Status |
+| --- | --- |
+| 0 — Preparação | concluída ✅ |
+| 1 — Estrutura arquitetural | concluída ✅ |
+| 2 — Dados configuráveis | concluída ✅ |
+| 3 — Fundação visual e física | concluída ✅ |
+| 4 — Jogador e controles | concluída ✅ |
+| 5 — Run básica e deslocamento da pista | concluída ✅ |
+| 6 — Obstáculos, coleta e pontuação | concluída ✅ |
+| 7 — Progressão e dificuldade | próxima |
+
+**Decisões tomadas durante a Fase 6:**
+
+- `ScoreManager` é a autoridade única da run (score, recorde, cor ativa, cores desbloqueadas, escudo e boost). O `ColorManager` previsto no GDD foi incorporado a ele, com um nome mais semântico.
+- `PlayerCollision` pergunta a regra ao `PlayerColor` (mesmo GameObject), que delega ao `ScoreManager`. Nenhuma referência direta ao manager na colisão.
+- `PlayerDeath` existe para a morte ser legível antes da tela de Game Over (Fase 12).
 
 ## Visão do jogo
 
@@ -184,62 +204,74 @@ Criar os ScriptableObjects que permitirão ajustar o jogo pelo Inspector:
 
 ## Fase 5 — Run básica e deslocamento da pista
 
+**Status:** concluída ✅
+
 Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pista e os objetos se deslocam em direção à câmera.
 
-1. Criar o `RunManager`.
+1. Criar o `RunManager`. ✅
 2. Controlar:
-   - Estado da run.
-   - Velocidade atual.
-   - Distância percorrida.
-   - Dificuldade atual.
-3. Criar tiles de pista recicláveis.
-4. Criar um `ObjectPool` genérico.
+   - Estado da run. ✅
+   - Velocidade atual. ✅
+   - Distância percorrida. ✅
+   - Dificuldade atual. ✅
+3. Criar tiles de pista recicláveis. ✅
+4. Criar um `ObjectPool` genérico. ✅
 5. Implementar:
-   - Ativação de tiles à frente do jogador.
-   - Reciclagem de tiles atrás da câmera.
-   - Movimento consistente de todos os elementos.
-6. Criar o `SpawnManager`.
+   - Ativação de tiles à frente do jogador. ✅
+   - Reciclagem de tiles atrás da câmera. ✅
+   - Movimento consistente de todos os elementos. ✅
+6. Criar o `SpawnManager`. ✅
 7. Definir o primeiro padrão de spawn:
-   - Obstáculos estáticos.
-   - Uma lane por obstáculo.
-   - Espaçamento seguro.
-   - Cores iniciais limitadas a duas.
+   - Obstáculos estáticos. ✅
+   - Uma lane por obstáculo. ✅
+   - Espaçamento seguro. ✅
+   - Cores iniciais limitadas a duas. ✅
 
-**Validação:** a pista deve parecer infinita, sem buracos, travamentos ou crescimento indefinido de objetos na Hierarchy.
+**Validação:** a pista deve parecer infinita, sem buracos, travamentos ou crescimento indefinido de objetos na Hierarchy. ✅
 
 ## Fase 6 — Obstáculos, coleta e pontuação
 
-1. Criar os prefabs de obstáculos:
-   - Cubo 1x1.
-   - Retângulo 2x1.
-   - Cubo 2x2.
-2. Aplicar cor e emissão conforme `ColorId`.
-3. Implementar comportamentos:
-   - Estático.
-   - Movimento lateral.
-   - Movimento mais rápido.
-   - Obstáculo alto ou largo.
-4. Implementar as regras de colisão:
-   - Cor compatível: coleta.
-   - Cor incompatível: morte.
-   - Shield: absorve uma colisão incompatível.
-   - Boost: permite cores adicionais.
-5. Criar o `ScoreManager`.
-6. Calcular pontuação pela área do obstáculo:
-   - 1x1 = 1 ponto.
-   - 2x1 = 2 pontos.
-   - 2x2 = 4 pontos.
-7. Emitir eventos:
-   - `OnCollected`.
-   - `OnPlayerDied`.
-   - `OnScoreChanged`.
-8. Criar feedback de coleta:
-   - Explosão de partículas.
-   - Flash.
-   - Shake.
-   - Atualização de score.
+**Status:** concluída ✅
 
-**Validação:** testar todas as combinações de cores, tamanhos, shield e boost.
+1. Criar os prefabs de obstáculos:
+   - Cubo 1x1. ✅
+   - Retângulo 2x1. ✅
+   - Cubo 2x2. ✅
+2. Aplicar cor e emissão conforme `ColorId`. ✅
+3. Implementar comportamentos:
+   - Estático. ✅
+   - Movimento lateral. ✅ (código pronto; ativado na Fase 7)
+   - Movimento mais rápido. ✅ (código pronto; ativado na Fase 7)
+   - Obstáculo alto ou largo. ✅ (código pronto; ativado na Fase 7)
+4. Implementar as regras de colisão:
+   - Cor compatível: coleta. ✅
+   - Cor incompatível: morte. ✅
+   - Shield: absorve uma colisão incompatível. ✅
+   - Boost: permite cores adicionais. ✅
+5. Criar o `ScoreManager`. ✅
+6. Calcular pontuação pela área do obstáculo:
+   - 1x1 = 1 ponto. ✅
+   - 2x1 = 2 pontos. ✅
+   - 2x2 = 4 pontos. ✅
+7. Emitir eventos:
+   - `OnCollected`. ✅
+   - `OnPlayerDied`. ✅
+   - `OnScoreChanged`. ✅
+8. Criar feedback de coleta:
+   - Explosão de partículas. ⏳ (Fase 10)
+   - Flash. ⏳ (Fase 10)
+   - Shake. ⏳ (Fase 10)
+   - Atualização de score. ✅
+
+**Notas de implementação (Fase 6):**
+
+- O `ScoreManager` é a autoridade única da run: score, recorde, cor ativa, cores desbloqueadas, escudo e boost. Ele substitui o `ColorManager` previsto no GDD com um nome mais semântico, sem criar dois managers.
+- A regra de coleta segue o GDD: `CanCollect` é verdadeiro apenas para a **cor ativa** ou para uma **cor coberta por boost**. Cor desbloqueada mas inativa continua sendo mortal.
+- O `PlayerCollision` não referencia o `ScoreManager`: ele pergunta ao `PlayerColor` no mesmo GameObject, que delega a regra. Isso reduz o acoplamento e mantém a colisão falando apenas com o estado do jogador.
+- O `PlayerDeath` toca a animação de morte (piscar + esconder) antes de fechar a run. Sem isso, o game over parecia um travamento, porque a pista parava mas o jogador continuava visível e responsivo.
+- A tela de Game Over (botão de recomeçar) é da Fase 12. Até lá, o teste exige parar o Play e iniciar de novo.
+
+**Validação:** testar todas as combinações de cores, tamanhos, shield e boost. ✅ (cores e tamanhos testados; shield/boost aguardam os power-ups da Fase 9)
 
 ## Fase 7 — Progressão e dificuldade
 

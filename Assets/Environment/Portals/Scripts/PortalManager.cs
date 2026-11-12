@@ -35,6 +35,9 @@ namespace PowerPulse.Environment
         [SerializeField, Tooltip("Track manager that provides the front edge of the track.")]
         private TrackManager m_TrackManager;
 
+        [SerializeField, Tooltip("Spawn manager that opens the adaptation window when a portal is crossed.")]
+        private SpawnManager m_SpawnManager;
+
         [SerializeField, Tooltip("Color palette with the unlock order.")]
         private SO_ColorPalette m_Palette;
 
@@ -136,6 +139,76 @@ namespace PowerPulse.Environment
         }
 
         /// <summary>
+        /// Returns the distance to the nearest active portal behind the given
+        /// world Z (closer to the camera). Returns a large value when there is none.
+        /// </summary>
+        /// <param name="worldZ">World Z to measure from.</param>
+        /// <returns>Distance to the nearest portal behind.</returns>
+        public float GetNearestPortalDistanceBehind(float worldZ)
+        {
+            float nearestDistance = float.PositiveInfinity;
+
+            for (int i = 0; i < m_ActivePortals.Count; i++)
+            {
+                GameObject portal = m_ActivePortals[i];
+
+                if (portal == null)
+                {
+                    continue;
+                }
+
+                float distance = worldZ - portal.transform.position.z;
+
+                if (distance < 0f)
+                {
+                    continue;
+                }
+
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                }
+            }
+
+            return nearestDistance;
+        }
+
+        /// <summary>
+        /// Returns the distance to the nearest active portal ahead of the given
+        /// world Z (further from the camera). Returns a large value when there is none.
+        /// </summary>
+        /// <param name="worldZ">World Z to measure from.</param>
+        /// <returns>Distance to the nearest portal ahead.</returns>
+        public float GetNearestPortalDistanceAhead(float worldZ)
+        {
+            float nearestDistance = float.PositiveInfinity;
+
+            for (int i = 0; i < m_ActivePortals.Count; i++)
+            {
+                GameObject portal = m_ActivePortals[i];
+
+                if (portal == null)
+                {
+                    continue;
+                }
+
+                float distance = portal.transform.position.z - worldZ;
+
+                if (distance < 0f)
+                {
+                    continue;
+                }
+
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                }
+            }
+
+            return nearestDistance;
+        }
+
+        /// <summary>
         /// Applies the color change when the player crosses a portal: the portal
         /// becomes the active color and the next color in the unlock order is
         /// unlocked. Lives here because this manager is a scene object and can
@@ -153,7 +226,26 @@ namespace PowerPulse.Environment
             m_ScoreManager.SetActiveColor(newColor);
             ColorId unlocked = m_ScoreManager.UnlockNextColor();
 
+            // Adaptation window: the player gets a clear stretch of track to read
+            // the new color before obstacles resume.
+            GetSpawnManager()?.OpenPortalCooldown();
+
             Debug.Log($"[PortalManager] Player crossed. New active color: {newColor} | Unlocked: {unlocked}");
+        }
+
+        /// <summary>
+        /// Returns the spawn manager, finding it in the scene when it was not
+        /// assigned in the Inspector.
+        /// </summary>
+        /// <returns>The spawn manager, or null.</returns>
+        private SpawnManager GetSpawnManager()
+        {
+            if (m_SpawnManager == null)
+            {
+                m_SpawnManager = FindFirstObjectByType<SpawnManager>();
+            }
+
+            return m_SpawnManager;
         }
 
         #endregion
@@ -239,6 +331,10 @@ namespace PowerPulse.Environment
 
             instance.transform.position = new Vector3(0f, 0f, m_TrackManager.FrontZ);
             m_ActivePortals.Add(instance);
+
+            // A portal must never arrive together with a row of obstacles: the
+            // player needs a clear stretch to read the new color.
+            GetSpawnManager()?.ClearObstaclesNear(instance.transform.position.z);
 
             Debug.Log($"[PortalManager] Portal spawned at {m_RunManager.Distance:0} m with color {portal.TargetColor}.");
         }

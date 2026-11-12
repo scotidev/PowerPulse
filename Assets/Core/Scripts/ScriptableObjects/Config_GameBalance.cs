@@ -63,6 +63,15 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Distance between color portals (meters).")]
         private float m_PortalInterval = 500f;
 
+        [SerializeField, Tooltip("Minimum distance between an obstacle row and an active portal (meters).")]
+        private float m_PortalClearance = 40f;
+
+        [SerializeField, Tooltip("Extra clearance applied ahead of the portal (meters), because the obstacles that already spawned are still traveling toward it.")]
+        private float m_PortalClearanceAhead = 20f;
+
+        [SerializeField, Tooltip("Distance traveled after a portal before obstacles spawn again (adaptation window, meters).")]
+        private float m_PortalCooldown = 25f;
+
         [SerializeField, Tooltip("Minimum distance between an obstacle row and a portal (meters).")]
         private float m_PortalObstacleGap = 10f;
 
@@ -108,6 +117,15 @@ namespace PowerPulse.Core
 
         /// <summary>Distance between color portals (meters).</summary>
         public float PortalInterval => m_PortalInterval;
+
+        /// <summary>Minimum distance between an obstacle row and an active portal (meters).</summary>
+        public float PortalClearance => m_PortalClearance;
+
+        /// <summary>Extra clearance applied ahead of the portal (meters).</summary>
+        public float PortalClearanceAhead => m_PortalClearanceAhead;
+
+        /// <summary>Distance traveled after a portal before obstacles spawn again (meters).</summary>
+        public float PortalCooldown => m_PortalCooldown;
 
         /// <summary>Minimum distance between an obstacle row and a portal (meters).</summary>
         public float PortalObstacleGap => m_PortalObstacleGap;

@@ -20,6 +20,12 @@ namespace PowerPulse.Core
         /// <summary>Chance of a moving obstacle being the faster variant once both are enabled.</summary>
         private const float c_FasterChance = 0.35f;
 
+        /// <summary>Fallback clearance behind a portal when nothing is configured.</summary>
+        private const float c_DefaultPortalClearance = 40f;
+
+        /// <summary>Fallback adaptation window when nothing is configured.</summary>
+        private const float c_DefaultPortalCooldown = 25f;
+
         #endregion
 
         #region SERIALIZED FIELDS
@@ -46,6 +52,23 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("World Z below which an obstacle is recycled.")]
         private float m_RecycleZ = -15f;
+
+        [Header("Portal Cooldown")]
+
+        [SerializeField, Tooltip("Distance traveled after a portal before obstacles spawn again (adaptation window).")]
+        private float m_PortalCooldown = 25f;
+
+        [SerializeField, Tooltip("Minimum distance between an obstacle row and an active portal. Obstacles never spawn right next to a portal. When 0, the GameBalance value is used.")]
+        private float m_PortalClearance = 0f;
+
+        [SerializeField, Tooltip("Extra clearance applied ahead of the portal, because the obstacles that already spawned are still traveling toward it.")]
+        private float m_PortalClearanceAhead = 0f;
+
+        [SerializeField, Tooltip("Game balance asset with the portal clearance values. Used when the fields above are 0.")]
+        private Config_GameBalance m_Balance;
+
+        [SerializeField, Tooltip("Portal manager used to keep the obstacles away from the portals. Optional (found automatically when empty).")]
+        private PortalManager m_PortalManager;
 
         [Header("Colors")]
 
@@ -100,6 +123,7 @@ namespace PowerPulse.Core
         private readonly List<ActiveObstacle> m_ActiveObstacles = new List<ActiveObstacle>();
         private float m_DistanceSinceLastSpawn;
         private bool m_IsSpawningEnabled = true;
+        private float m_DistanceAtLastPortal;
 
         #endregion
 
@@ -153,12 +177,24 @@ namespace PowerPulse.Core
             }
 
             float delta = Time.deltaTime * m_RunManager.Speed;
-            MoveObstacles(delta);
 
+            // The obstacles are moved by the TrackManager with the same distance
+            // as the tiles. Here we only decide when to spawn.
             if (m_IsSpawningEnabled)
             {
                 TrySpawn(delta);
             }
+        }
+
+        /// <summary>
+        /// Moves every active obstacle by the exact distance the track moved this
+        /// frame. The distance comes from the caller so obstacles and tiles never
+        /// drift apart.
+        /// </summary>
+        /// <param name="delta">Distance to move in world units.</param>
+        public void MoveObstaclesWithTrack(float delta)
+        {
+            MoveObstacles(delta);
         }
 
         #endregion
@@ -184,6 +220,7 @@ namespace PowerPulse.Core
             m_ActiveObstacles.Clear();
             m_DistanceSinceLastSpawn = 0f;
             m_IsSpawningEnabled = true;
+            m_DistanceAtLastPortal = -m_PortalCooldown;
         }
 
         #endregion
@@ -289,6 +326,83 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
+        /// Opens the adaptation window: no obstacle spawns for the configured
+        /// distance after a portal, giving the player time to get used to the new
+        /// active color.
+        /// </summary>
+        public void OpenPortalCooldown()
+        {
+            m_DistanceAtLastPortal = m_RunManager.Distance;
+            m_DistanceSinceLastSpawn = 0f;
+
+            Debug.Log($"[SpawnManager] Portal cooldown opened for {GetPortalCooldown()} m.");
+        }
+
+        /// <summary>
+        /// Returns the adaptation window: the Inspector value when set, otherwise
+        /// the GameBalance value, otherwise the fallback.
+        /// </summary>
+        /// <returns>Cooldown in meters.</returns>
+        private float GetPortalCooldown()
+        {
+            if (m_PortalCooldown > 0f)
+            {
+                return m_PortalCooldown;
+            }
+
+            if (m_Balance != null && m_Balance.PortalCooldown > 0f)
+            {
+                return m_Balance.PortalCooldown;
+            }
+
+            return c_DefaultPortalCooldown;
+        }
+
+        /// <summary>
+        /// Removes every active obstacle too close to a world Z. Called when a
+        /// portal spawns, so the player never meets a row of obstacles together
+        /// with the portal. The clearance is asymmetric: ahead of the portal it
+        /// is larger, because those obstacles are the ones the player would meet
+        /// right after crossing.
+        /// </summary>
+        /// <param name="worldZ">World Z of the portal.</param>
+        public void ClearObstaclesNear(float worldZ)
+        {
+            float clearanceBehind = GetClearanceBehind();
+            float clearanceAhead = GetClearanceAhead();
+
+            int removed = 0;
+
+            for (int i = m_ActiveObstacles.Count - 1; i >= 0; i--)
+            {
+                ActiveObstacle active = m_ActiveObstacles[i];
+
+                if (active.Instance == null)
+                {
+                    m_ActiveObstacles.RemoveAt(i);
+                    continue;
+                }
+
+                float offset = active.Instance.transform.position.z - worldZ;
+                float limit = offset >= 0f ? clearanceAhead : clearanceBehind;
+
+                if (Mathf.Abs(offset) > limit)
+                {
+                    continue;
+                }
+
+                m_Pool.Release(active.Prefab, active.Instance);
+                m_ActiveObstacles.RemoveAt(i);
+                removed++;
+            }
+
+            if (removed > 0)
+            {
+                Debug.Log($"[SpawnManager] Cleared {removed} obstacle(s) near the portal at {worldZ:0} m.");
+            }
+        }
+
+        /// <summary>
         /// Spawns a new obstacle row when the spawn spacing and the initial safe
         /// distance are reached.
         /// </summary>
@@ -307,8 +421,106 @@ namespace PowerPulse.Core
                 return;
             }
 
+            // Adaptation window: right after a portal the player gets a clear
+            // stretch of track to read the new color.
+            if (m_RunManager.Distance - m_DistanceAtLastPortal < GetPortalCooldown())
+            {
+                return;
+            }
+
+            // Portal clearance: never spawn a row right next to a portal. The
+            // obstacles spawn at the front edge of the track, so the check is
+            // made against that exact position.
+            if (!HasPortalClearance())
+            {
+                return;
+            }
+
             m_DistanceSinceLastSpawn = 0f;
             SpawnObstacle();
+        }
+
+        /// <summary>
+        /// Tells whether an obstacle can spawn at the front edge of the track,
+        /// keeping the clearance distance from every active portal. The clearance
+        /// is asymmetric: ahead of the portal it is larger, because the obstacles
+        /// that already spawned are still traveling toward it and the player
+        /// should meet them only after having read the new color.
+        /// The distances are measured as the stretch the player still has to
+        /// travel, which is the difference in world Z between the spawn point
+        /// and the portal.
+        /// </summary>
+        /// <returns>True when an obstacle can spawn safely.</returns>
+        private bool HasPortalClearance()
+        {
+            if (m_PortalManager == null)
+            {
+                m_PortalManager = FindFirstObjectByType<PortalManager>();
+            }
+
+            if (m_PortalManager == null)
+            {
+                return true;
+            }
+
+            float spawnZ = m_TrackManager.FrontZ;
+            float clearanceBehind = GetClearanceBehind();
+            float clearanceAhead = GetClearanceAhead();
+
+            float nearestBehind = m_PortalManager.GetNearestPortalDistanceBehind(spawnZ);
+            float nearestAhead = m_PortalManager.GetNearestPortalDistanceAhead(spawnZ);
+
+            // The portals that already spawned sit BEHIND the spawn point: the
+            // front edge of the track advances while they travel toward the camera.
+            // An obstacle spawned now would reach the player after them, so the
+            // distance to them is the "ahead" clearance.
+            if (nearestBehind <= clearanceAhead)
+            {
+                Debug.Log($"[SpawnManager] Spawn blocked: portal {nearestBehind:0} m behind the spawn point ({spawnZ:0} m), needs {clearanceAhead:0} m.");
+                return false;
+            }
+
+            // A portal spawned in the same frame can be slightly ahead of the
+            // spawn point; that one needs the "behind" clearance.
+            if (nearestAhead <= clearanceBehind)
+            {
+                Debug.Log($"[SpawnManager] Spawn blocked: portal {nearestAhead:0} m ahead of the spawn point ({spawnZ:0} m), needs {clearanceBehind:0} m.");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Returns the clearance applied behind the portal: the Inspector value
+        /// when set, otherwise the GameBalance value.
+        /// </summary>
+        /// <returns>Clearance in meters.</returns>
+        private float GetClearanceBehind()
+        {
+            if (m_PortalClearance > 0f)
+            {
+                return m_PortalClearance;
+            }
+
+            return m_Balance != null ? m_Balance.PortalClearance : c_DefaultPortalClearance;
+        }
+
+        /// <summary>
+        /// Returns the clearance applied ahead of the portal: the base clearance
+        /// plus the extra ahead value.
+        /// </summary>
+        /// <returns>Clearance in meters.</returns>
+        private float GetClearanceAhead()
+        {
+            float extra = m_PortalClearanceAhead;
+
+            if (extra <= 0f && m_Balance != null)
+            {
+                extra = m_Balance.PortalClearanceAhead;
+            }
+
+            return GetClearanceBehind() + extra;
         }
 
         /// <summary>

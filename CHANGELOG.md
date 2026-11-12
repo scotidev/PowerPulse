@@ -7,6 +7,39 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
+## Fase 10 — Ajustes de ritmo e cobertura
+
+### Added
+
+- `SpawnManager.PortalCooldown`: an adaptation window after each portal. No obstacles spawn for the configured distance (25 m by default), giving the player time to read the new active color before the next challenge.
+- `SpawnManager.ClearObstaclesNear()`: when a portal spawns, every obstacle too close to it is recycled, so the player never meets a row of obstacles together with the portal.
+- `SpawnManager.PortalClearance` / `PortalClearanceAhead`: asymmetric clearance around the portal. The clearance **ahead** is larger (base + extra), because the obstacles that already spawned are still traveling toward it and the player should meet them only after reading the new color.
+- `Config_GameBalance.PortalClearance` (40 m), `PortalClearanceAhead` (20 m extra) and `PortalCooldown` (25 m): the same values in the balance asset, so everything is configured in one place.
+- `PortalManager` now calls `SpawnManager.OpenPortalCooldown()` when a portal is crossed.
+
+### Changed
+
+- `TrackManager` now keeps **9 tiles** active (was 6) and starts the first tile at `z = -20`, so the track covers the whole visible area plus the region behind the camera. The end of the track is no longer visible.
+- `TrackManager.InitialTileZ` and `TileCount` are configurable in the Inspector.
+- The portal clearance is now measured as the stretch the player still has to travel (the difference in world Z between the spawn point and the portal), not as an absolute world distance. This matters because the front edge of the track advances while the portals travel toward the camera.
+
+### Fixed
+
+- **Obstacles spawning together with the portal.** The obstacles spawn at the front edge of the track and the portal spawns at the same place, so the player met both at once. Now the portal clears the nearby obstacles when it spawns, and the obstacle spawner refuses to place a row within the clearance distance of any active portal.
+- **Obstacles ahead of the portal.** The clearance now has two values: 40 m behind the portal and 60 m ahead of it. Validated by simulation: the player gets **40 m of breathing room before** the portal and **60 m after** it.
+
+## Fase 9 — Correções de estabilidade (pós-Fases 7/8)
+
+### Fixed
+
+- **Player drifting away from the camera.** Nothing owned the Z axis of the player, so residual physics pushed the sphere forward over time. The `PlayerController` now locks the Z axis (rigidbody constraint + `ApplyZAxisLock` in `FixedUpdate`), with `Lock Z Axis` and `Locked Z` configurable in the Inspector.
+- **Obstacles disappearing / track "tangling".** Two causes: (1) `ObjectPool.Release` accepted the same instance twice, so it entered the free queue twice and was handed out twice — spawning duplicates that moved twice as fast; (2) `TrackManager` and `SpawnManager` each computed their own movement delta in separate `Update` calls, so tiles and obstacles drifted apart. The pool now tracks `InUse` and rejects a double release; the `TrackManager` owns the movement of the whole scene and pushes the obstacles with the same delta as the tiles.
+- **Camera framing.** New `CameraFollow` follows the player on the X axis with a locked offset, so the framing stays readable when the player changes lane. The GDD describes a fixed camera; this implements that as a follow with a locked offset (the standard Unity approach).
+
+### Added
+
+- `CameraFollow` (`Assets/Core/Scripts/Camera/`): follows the target on X, keeps Y/Z offsets constant, configurable smoothing.
+
 ## Fase 8 — Portais de cor
 
 ### Added

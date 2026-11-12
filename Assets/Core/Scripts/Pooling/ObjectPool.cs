@@ -40,6 +40,7 @@ namespace PowerPulse.Core
             public GameObject Prefab;
             public Transform Root;
             public Queue<GameObject> Free = new Queue<GameObject>();
+            public HashSet<GameObject> InUse = new HashSet<GameObject>();
             public Action<GameObject> OnGet;
             public Action<GameObject> OnRelease;
         }
@@ -143,12 +144,19 @@ namespace PowerPulse.Core
             if (pool != null && pool.Free.Count > 0)
             {
                 instance = pool.Free.Dequeue();
+
+                // Safety: never hand out an instance that is still marked as in use.
+                while (pool.InUse.Contains(instance) && pool.Free.Count > 0)
+                {
+                    instance = pool.Free.Dequeue();
+                }
             }
             else
             {
                 instance = Instantiate(prefab, pool != null ? pool.Root : transform);
             }
 
+            pool?.InUse.Add(instance);
             instance.transform.SetPositionAndRotation(position, rotation);
             instance.SetActive(true);
             pool?.OnGet?.Invoke(instance);
@@ -158,6 +166,8 @@ namespace PowerPulse.Core
 
         /// <summary>
         /// Deactivates an instance and returns it to the pool of its prefab.
+        /// Releasing the same instance twice is a no-op, so a double recycle
+        /// cannot duplicate the object in the pool.
         /// </summary>
         /// <param name="prefab">Prefab the instance belongs to.</param>
         /// <param name="instance">Instance to release.</param>
@@ -169,6 +179,12 @@ namespace PowerPulse.Core
             }
 
             if (!m_Pools.TryGetValue(prefab, out Pool pool))
+            {
+                return;
+            }
+
+            // Guard: an instance already in the free queue is not released again.
+            if (!pool.InUse.Remove(instance))
             {
                 return;
             }

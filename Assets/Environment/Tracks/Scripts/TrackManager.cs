@@ -27,14 +27,17 @@ namespace PowerPulse.Environment
         private GameObject m_TilePrefab;
 
         [Header("Setup")]
-        [SerializeField, Tooltip("Number of tiles kept active at the same time.")]
-        private int m_TileCount = 6;
+        [SerializeField, Tooltip("Number of tiles kept active at the same time. Must be enough to cover the visible track plus the area behind the camera.")]
+        private int m_TileCount = 9;
 
         [SerializeField, Tooltip("World Z below which a tile is recycled.")]
         private float m_RecycleZ = -15f;
 
-        [SerializeField, Tooltip("World Z of the first tile when the scene starts.")]
-        private float m_InitialTileZ = 0f;
+        [SerializeField, Tooltip("World Z of the first tile when the scene starts. Negative values keep the track behind the camera.")]
+        private float m_InitialTileZ = -20f;
+
+        [SerializeField, Tooltip("Spawn manager moved together with the tiles so obstacles and tiles never drift apart.")]
+        private SpawnManager m_SpawnManager;
 
         #endregion
 
@@ -95,7 +98,13 @@ namespace PowerPulse.Environment
             }
 
             float delta = Time.deltaTime * m_RunManager.Speed;
+
+            // The TrackManager owns the movement of the whole scene: tiles AND
+            // obstacles move by the same distance in the same frame, so they can
+            // never drift apart.
             MoveTiles(delta);
+            m_SpawnManager?.MoveObstaclesWithTrack(delta);
+
             UpdateFrontZ();
             RecycleTiles();
         }
@@ -149,10 +158,13 @@ namespace PowerPulse.Environment
                 }
             }
 
+            // Refill the front, one tile at a time. The new tile is placed right
+            // after the current front tile, so the front edge advances by exactly
+            // one tile length and never overlaps or gaps.
             while (m_ActiveTiles.Count < m_TileCount)
             {
-                float z = m_ActiveTiles.Count == 0 ? m_InitialTileZ : m_FrontZ + m_TileLength * 0.5f;
-                GameObject tile = m_Pool.Get(m_TilePrefab, new Vector3(0f, 0f, z), Quaternion.identity);
+                float centerZ = GetFrontTileCenterZ() + m_TileLength;
+                GameObject tile = m_Pool.Get(m_TilePrefab, new Vector3(0f, 0f, centerZ), Quaternion.identity);
                 m_ActiveTiles.Add(tile);
                 UpdateFrontZ();
             }
@@ -163,6 +175,21 @@ namespace PowerPulse.Environment
         /// </summary>
         private void UpdateFrontZ()
         {
+            m_FrontZ = GetFrontTileCenterZ() + m_TileLength * 0.5f;
+        }
+
+        /// <summary>
+        /// Returns the center Z of the tile furthest from the camera, or the
+        /// initial tile Z when the track is empty.
+        /// </summary>
+        /// <returns>Center Z of the front tile.</returns>
+        private float GetFrontTileCenterZ()
+        {
+            if (m_ActiveTiles.Count == 0)
+            {
+                return m_InitialTileZ;
+            }
+
             float maxZ = float.NegativeInfinity;
 
             for (int i = 0; i < m_ActiveTiles.Count; i++)
@@ -170,7 +197,7 @@ namespace PowerPulse.Environment
                 maxZ = Mathf.Max(maxZ, m_ActiveTiles[i].transform.position.z);
             }
 
-            m_FrontZ = maxZ + m_TileLength * 0.5f;
+            return maxZ;
         }
 
         #endregion

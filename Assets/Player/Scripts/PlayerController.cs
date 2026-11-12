@@ -20,6 +20,9 @@ namespace PowerPulse.Player
         private const int c_MinLane = -2;
         private const int c_MaxLane = 2;
 
+        /// <summary>World Z the player is locked to, so the camera framing stays constant.</summary>
+        private const float c_LockedZ = 0f;
+
         #endregion
 
 
@@ -38,6 +41,14 @@ namespace PowerPulse.Player
 
         [SerializeField, Tooltip("Distance from the player origin to the ground.")]
         private float m_GroundCheckDistance = 0.5f;
+
+        [Header("Axis Lock")]
+
+        [SerializeField, Tooltip("Locks the player on the Z axis so the camera framing never drifts.")]
+        private bool m_LockZAxis = true;
+
+        [SerializeField, Tooltip("World Z the player stays on when the axis is locked.")]
+        private float m_LockedZ = c_LockedZ;
 
         [Header("Touch")]
         [SerializeField, Tooltip("Minimum vertical swipe distance (in pixels) to jump.")]
@@ -102,6 +113,7 @@ namespace PowerPulse.Player
         private void FixedUpdate()
         {
             ApplyLaneMovement();
+            ApplyZAxisLock();
         }
 
         #endregion
@@ -120,9 +132,15 @@ namespace PowerPulse.Player
             {
                 m_Rb.linearVelocity = Vector3.zero;
                 m_Rb.angularVelocity = Vector3.zero;
+
+                // Locking the Z axis on the rigidbody itself stops any residual
+                // drift from physics, so the camera framing never changes.
+                m_Rb.constraints = m_LockZAxis
+                    ? RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ
+                    : RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             }
 
-            transform.position = new Vector3(0f, transform.position.y, transform.position.z);
+            transform.position = new Vector3(0f, transform.position.y, m_LockZAxis ? m_LockedZ : transform.position.z);
 
             if (m_Trail != null)
             {
@@ -228,6 +246,36 @@ namespace PowerPulse.Player
             float newX = Mathf.MoveTowards(currentX, targetX, maxStep);
 
             m_Rb.MovePosition(new Vector3(newX, m_Rb.position.y, m_Rb.position.z));
+        }
+
+        /// <summary>
+        /// Keeps the player on the locked Z line, cancelling any residual forward
+        /// or backward velocity. Without this the sphere slowly drifts away from
+        /// the camera because nothing owns the Z axis.
+        /// </summary>
+        private void ApplyZAxisLock()
+        {
+            if (!m_LockZAxis)
+            {
+                return;
+            }
+
+            Vector3 position = transform.position;
+
+            if (Mathf.Approximately(position.z, m_LockedZ))
+            {
+                if (Mathf.Abs(m_Rb.linearVelocity.z) < 0.001f)
+                {
+                    return;
+                }
+            }
+
+            m_Rb.MovePosition(new Vector3(position.x, position.y, m_LockedZ));
+
+            if (Mathf.Abs(m_Rb.linearVelocity.z) > 0.001f)
+            {
+                m_Rb.linearVelocity = new Vector3(m_Rb.linearVelocity.x, m_Rb.linearVelocity.y, 0f);
+            }
         }
 
         /// <summary>Enables the trail during the dash and disables it afterwards.</summary>

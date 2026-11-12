@@ -18,8 +18,11 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Maximum track speed (units per second).")]
         private float m_MaxSpeed = 20f;
 
-        [SerializeField, Tooltip("Speed curve over distance (x = distance, y = speed multiplier).")]
+        [SerializeField, Tooltip("Speed curve over distance (x = normalized distance, y = speed multiplier).")]
         private AnimationCurve m_SpeedCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+
+        [SerializeField, Tooltip("Distance (meters) over which the speed curve goes from 0 to 1.")]
+        private float m_SpeedDistanceReference = 5000f;
 
         [Header("Spawning")]
         [SerializeField, Tooltip("Distance between color portals (meters).")]
@@ -50,6 +53,9 @@ namespace PowerPulse.Core
 
         /// <summary>Speed curve over distance.</summary>
         public AnimationCurve SpeedCurve => m_SpeedCurve;
+
+        /// <summary>Distance (meters) over which the speed curve goes from 0 to 1.</summary>
+        public float SpeedDistanceReference => m_SpeedDistanceReference;
 
         /// <summary>Distance between color portals (meters).</summary>
         public float PortalInterval => m_PortalInterval;

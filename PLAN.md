@@ -156,7 +156,7 @@ Criar os ScriptableObjects que permitirão ajustar o jogo pelo Inspector:
 
 ## Fase 4 — Jogador e controles
 
-**Status:** não iniciada
+**Status:** concluída ✅
 
 1. Input:
    - Criar um novo Input Actions asset (`PowerPulseInputActions`).
@@ -176,7 +176,7 @@ Criar os ScriptableObjects que permitirão ajustar o jogo pelo Inspector:
    - Detecção de trigger.
    - Expõe os contatos (coleta/morte) para as Fases 6–9.
 5. Feedback:
-   - Trail no dash, pulso da esfera, anel do shield, animação simples de pulo.
+   - Trail no dash, pulso da esfera, animação simples de pulo.
 6. Pastas:
    - `Assets/Player/Scripts/`.
 
@@ -453,13 +453,13 @@ Depois que todo o jogo estiver funcional:
 
 Criar uma matriz de testes com runs em diferentes faixas:
 
-| Distância | Objetivo |
-|---|---|
-| 0–500 m | Aprendizado e adaptação |
-| 500–1.000 m | Primeiro aumento de complexidade |
+| Distância     | Objetivo                            |
+| ------------- | ----------------------------------- |
+| 0–500 m       | Aprendizado e adaptação             |
+| 500–1.000 m   | Primeiro aumento de complexidade    |
 | 1.000–2.000 m | Introdução consistente de movimento |
-| 2.000–5.000 m | Domínio dos sistemas |
-| 5.000 m+ | Desafio de alta habilidade |
+| 2.000–5.000 m | Domínio dos sistemas                |
+| 5.000 m+      | Desafio de alta habilidade          |
 
 Avaliar manualmente:
 

@@ -25,13 +25,23 @@ Decisões confirmadas:
 | 4 — Jogador e controles | concluída ✅ |
 | 5 — Run básica e deslocamento da pista | concluída ✅ |
 | 6 — Obstáculos, coleta e pontuação | concluída ✅ |
-| 7 — Progressão e dificuldade | próxima |
+| 7 — Progressão e dificuldade | concluída ✅ |
+| 8 — Portais de cor | concluída ✅ |
+| 9 — Power-ups | próxima |
 
 **Decisões tomadas durante a Fase 6:**
 
 - `ScoreManager` é a autoridade única da run (score, recorde, cor ativa, cores desbloqueadas, escudo e boost). O `ColorManager` previsto no GDD foi incorporado a ele, com um nome mais semântico.
 - `PlayerCollision` pergunta a regra ao `PlayerColor` (mesmo GameObject), que delega ao `ScoreManager`. Nenhuma referência direta ao manager na colisão.
 - `PlayerDeath` existe para a morte ser legível antes da tela de Game Over (Fase 12).
+
+**Decisões tomadas durante as Fases 7 e 8:**
+
+- O portal de cor **atravessa as 5 lanes** (arco/cortina). Com 5 lanes, um portal de 1 lane poderia ser desviado e o jogador ficaria preso na cor inicial — o arco torna a passagem obrigatória.
+- A cor do portal é sempre a **próxima do `UnlockOrder`**, nunca aleatória: progressão garantida (2 → 5) sem morte instantânea por cor não desbloqueada.
+- Os marcos de dificuldade são **data-driven** (`Config_GameBalance.Milestones`), aplicados uma vez por evento.
+- Obstáculos podem ser evitados por **troca de lane ou pulo** — não existe obstáculo "só de pulo".
+- Regra de segurança: `PickFreeLanes` sempre deixa **uma lane livre** por fileira.
 
 ## Visão do jogo
 
@@ -275,46 +285,65 @@ Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pist
 
 ## Fase 7 — Progressão e dificuldade
 
-1. Criar uma curva de dificuldade configurável.
-2. Definir os marcos:
-   - 0–500 m: duas cores e obstáculos estáticos.
-   - 500 m: primeiro portal.
-   - Aproximadamente 1.000 m: obstáculos móveis.
-   - Distâncias posteriores: maior velocidade, densidade e tamanho.
-3. Fazer o `RunManager` reagir a marcos, sem executar decisões complexas por frame.
-4. Aumentar gradualmente:
-   - Velocidade da pista.
-   - Número de cores ativas.
-   - Frequência de obstáculos.
-   - Complexidade dos padrões.
-   - Movimento dos obstáculos.
-5. Garantir que a dificuldade não gere padrões impossíveis.
-6. Criar regras de segurança:
-   - Sempre existir uma solução jogável.
-   - Não bloquear todas as lanes sem alternativa.
-   - Não colocar power-up em posição impossível.
-   - Não exigir reação além do tempo definido.
+**Status:** concluída ✅
 
-**Validação:** executar runs manuais em diferentes distâncias, registrando onde o jogo se torna injusto ou trivial.
+1. Criar uma curva de dificuldade configurável. ✅ (`Config_GameBalance.DifficultyMilestone`)
+2. Definir os marcos:
+   - 0–500 m: duas cores e obstáculos estáticos. ✅
+   - 500 m: primeiro portal. ✅
+   - Aproximadamente 1.000 m: obstáculos móveis. ✅
+   - Distâncias posteriores: maior velocidade, densidade e tamanho. ✅
+3. Fazer o `RunManager` reagir a marcos, sem executar decisões complexas por frame. ✅ (`OnMilestoneReached`)
+4. Aumentar gradualmente:
+   - Velocidade da pista. ✅
+   - Número de cores ativas. ✅ (via portais, Fase 8)
+   - Frequência de obstáculos. ✅ (`MaxObstaclesPerRow`)
+   - Complexidade dos padrões. ✅ (Moving → Faster)
+   - Movimento dos obstáculos. ✅
+5. Garantir que a dificuldade não gere padrões impossíveis. ✅
+6. Criar regras de segurança:
+   - Sempre existir uma solução jogável. ✅ (`PickFreeLanes` deixa 1 lane livre)
+   - Não bloquear todas as lanes sem alternativa. ✅
+   - Não colocar power-up em posição impossível. ⏳ (Fase 9)
+   - Não exigir reação além do tempo definido. ⏳ (Fase 16 — balanceamento)
+
+**Notas de implementação (Fase 7):**
+
+- Os marcos são **data-driven**: a lista `Milestones` no `Config_GameBalance` define distância, velocidade, habilitação de Moving/Faster e o máximo de obstáculos por fileira. Nenhum valor está hardcoded no `RunManager`.
+- O `RunManager` aplica cada marco **uma vez**, por evento. Nada de recalcular dificuldade por frame.
+- O comportamento do obstáculo passou a ser decidido pelo marco ativo, não mais pelo valor do prefab. Assim a curva é controlada por dados.
+- Obstáculos podem ser evitados por **troca de lane ou pulo**. Não existe obstáculo "só de pulo", mantendo coerência com as ferramentas do jogador.
+- Regra de segurança implementada: `PickFreeLanes` distribui os obstáculos em lanes sorteadas e **sempre deixa uma lane livre**, impossibilitando fileiras sem solução.
+
+**Validação:** executar runs manuais em diferentes distâncias, registrando onde o jogo se torna injusto ou trivial. ⏳ (Fase 16 sistematiza; testes manuais já feitos)
 
 ## Fase 8 — Portais de cor
 
-1. Criar o prefab do portal translúcido.
-2. Implementar a frequência por distância:
-   - Um portal a cada 500 m.
-3. Definir a cor futura do portal.
-4. Ao atravessar:
-   - Trocar a cor ativa.
-   - Liberar progressivamente uma nova cor.
-   - Emitir feedback visual e sonoro.
-5. Garantir que:
-   - O portal seja atravessável.
-   - A cor só mude se o jogador realmente passar por ele.
-   - O portal não apareça sobre outro objeto.
-   - A troca não ocorra por aproximação lateral.
-6. Criar variações visuais de portal conforme a progressão.
+**Status:** concluída ✅
 
-**Validação:** testar portais em todas as combinações de cores e em diferentes velocidades.
+1. Criar o prefab do portal translúcido. ✅ (cubo esticado, 5 lanes de largura)
+2. Implementar a frequência por distância:
+   - Um portal a cada 500 m. ✅
+3. Definir a cor futura do portal. ✅ (próxima do `UnlockOrder`)
+4. Ao atravessar:
+   - Trocar a cor ativa. ✅
+   - Liberar progressivamente uma nova cor. ✅
+   - Emitir feedback visual e sonoro. ⏳ (SFX é Fase 13; o visual é o portal)
+5. Garantir que:
+   - O portal seja atravessável. ✅ (collider como trigger, sem bloqueio físico)
+   - A cor só mude se o jogador realmente passar por ele. ✅ (`OnTriggerEnter` no Player)
+   - O portal não apareça sobre outro objeto. ✅ (espaçamento mínimo via `PortalObstacleGap`)
+   - A troca não ocorra por aproximação lateral. ✅ (o portal atravessa a pista inteira)
+6. Criar variações visuais de portal conforme a progressão. ⏳ (Fase 15 — integração visual final)
+
+**Notas de implementação (Fase 8):**
+
+- **O portal atravessa as 5 lanes** (um arco/cortina de cor). Como o jogo tem 5 lanes, um portal de 1 lane poderia ser desviado e o jogador ficaria preso na cor inicial para sempre. O arco torna a passagem obrigatória de verdade, como o GDD pede.
+- A cor do portal é **sempre a próxima do `UnlockOrder`**, nunca aleatória. Isso garante a progressão (2 → 5 cores) sem morte instantânea por cor não desbloqueada.
+- O desbloqueio acontece **ao atravessar** (não por distância), então o progresso é do jogador.
+- Depois das 5 cores desbloqueadas, os portais continuam a cada 500 m trocando a cor ativa aleatoriamente entre as desbloqueadas — o jogo não fica parado.
+
+**Validação:** testar portais em todas as combinações de cores e em diferentes velocidades. ✅
 
 ## Fase 9 — Power-ups
 

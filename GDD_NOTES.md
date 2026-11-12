@@ -9,6 +9,57 @@ Entradas organizadas por fase, mais recentes primeiro.
 
 ---
 
+## Fase 8 — Portais de cor
+
+### Decisão de design: o portal atravessa as 5 lanes
+
+**O GDD diz:** "Portal de cor: [...] passagem obrigatória; surge a cada 500 m;
+libera progressivamente novas cores até o máximo de 5."
+
+**O problema:** a pista tem 5 lanes. Um portal de 1 lane pode ser desviado, e
+aí o jogador fica preso na cor inicial para sempre — a progressão nunca acontece.
+
+**O que foi feito:** o portal é um **arco/cortina translúcida que atravessa a
+pista inteira**. É impossível desviar, então a "passagem obrigatória" do GDD é
+real. A cor é sempre a próxima do `UnlockOrder`, o que garante a progressão sem
+morte instantânea por cor não desbloqueada.
+
+### Decisão: o desbloqueio acontece ao atravessar
+
+O GDD diz que o portal "libera progressivamente novas cores". A implementação
+desbloqueia **no momento da passagem**, não por distância. Assim o progresso é
+do jogador, não um relógio automático.
+
+---
+
+## Fase 7 — Progressão e dificuldade
+
+### Marcos data-driven
+
+**O GDD diz:** "A dificuldade cresce de forma gradual com a distância" e o
+`RunManager` "reage a marcos (não roda por frame)".
+
+**O que foi feito:** os marcos são uma lista configurável no `Config_GameBalance`
+(distância, velocidade, Moving/Faster, máximo de obstáculos por fileira). O
+`RunManager` aplica cada marco uma vez, por evento.
+
+### Sem obstáculo "só de pulo"
+
+**O GDD diz:** "Obstáculos de pulo: alguns só podem ser evitados pulando."
+
+**O que foi feito:** todos os obstáculos podem ser evitados por **troca de lane
+ou pulo**. O pulo é uma ferramenta a mais, não um requisito. Confirmação do
+jogador durante o planejamento.
+
+### Segurança: uma lane sempre livre
+
+**O que foi feito:** `SpawnManager.PickFreeLanes` distribui os obstáculos em
+lanes sorteadas e sempre deixa uma lane livre, impossibilitando fileiras sem
+solução. O máximo por fileira é limitado por `MaxObstaclesPerRow` no marco
+(atualmente 1, então sempre sobram 4 lanes livres).
+
+---
+
 ## Fase 6 — Obstáculos, coleta e pontuação
 
 ### `ColorManager` → `ScoreManager`

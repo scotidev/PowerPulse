@@ -1,14 +1,43 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace PowerPulse.Core
 {
     /// <summary>
-    /// Global balance configuration: speed progression, spawn rules and
-    /// difficulty curves. Adjusted by the Inspector, never hardcoded.
+    /// Global balance configuration: speed progression, spawn rules, difficulty
+    /// milestones and portal rules. Adjusted by the Inspector, never hardcoded.
     /// </summary>
     [CreateAssetMenu(menuName = "PowerPulse/Game Balance")]
     public class Config_GameBalance : ScriptableObject
     {
+        #region NESTED TYPES
+
+        /// <summary>
+        /// A single difficulty milestone: when it triggers and what it unlocks.
+        /// </summary>
+        [Serializable]
+        public class DifficultyMilestone
+        {
+            [Tooltip("Distance in meters where this milestone triggers.")]
+            public float Distance = 500f;
+
+            [Tooltip("Track speed applied from this milestone on (units per second).")]
+            public float Speed = 8f;
+
+            [Tooltip("Whether lateral moving obstacles are enabled from here on.")]
+            public bool EnableMoving;
+
+            [Tooltip("Whether faster lateral obstacles are enabled from here on.")]
+            public bool EnableFaster;
+
+            [Tooltip("Maximum number of obstacles per row from here on.")]
+            public int MaxObstaclesPerRow = 1;
+        }
+
+        #endregion
+
+
         #region SERIALIZED FIELDS
 
         [Header("Speed")]
@@ -24,9 +53,18 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Distance (meters) over which the speed curve goes from 0 to 1.")]
         private float m_SpeedDistanceReference = 5000f;
 
+        [Header("Difficulty Milestones")]
+
+        [SerializeField, Tooltip("Ordered list of difficulty milestones, by distance. The RunManager reacts to them.")]
+        private List<DifficultyMilestone> m_Milestones = new List<DifficultyMilestone>();
+
         [Header("Spawning")]
+
         [SerializeField, Tooltip("Distance between color portals (meters).")]
         private float m_PortalInterval = 500f;
+
+        [SerializeField, Tooltip("Minimum distance between an obstacle row and a portal (meters).")]
+        private float m_PortalObstacleGap = 10f;
 
         [SerializeField, Tooltip("Average distance between power-up spawns (meters).")]
         private float m_PowerUpInterval = 250f;
@@ -39,6 +77,14 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("Maximum number of colors active at once.")]
         private int m_MaxColors = 5;
+
+        [Header("Obstacle Movement")]
+
+        [SerializeField, Tooltip("Lateral speed of Moving obstacles in units per second.")]
+        private float m_MovingSpeed = 1.5f;
+
+        [SerializeField, Tooltip("Lateral speed of Faster obstacles in units per second.")]
+        private float m_FasterSpeed = 3f;
 
         #endregion
 
@@ -57,8 +103,14 @@ namespace PowerPulse.Core
         /// <summary>Distance (meters) over which the speed curve goes from 0 to 1.</summary>
         public float SpeedDistanceReference => m_SpeedDistanceReference;
 
+        /// <summary>Ordered list of difficulty milestones.</summary>
+        public List<DifficultyMilestone> Milestones => m_Milestones;
+
         /// <summary>Distance between color portals (meters).</summary>
         public float PortalInterval => m_PortalInterval;
+
+        /// <summary>Minimum distance between an obstacle row and a portal (meters).</summary>
+        public float PortalObstacleGap => m_PortalObstacleGap;
 
         /// <summary>Average distance between power-up spawns (meters).</summary>
         public float PowerUpInterval => m_PowerUpInterval;
@@ -71,6 +123,12 @@ namespace PowerPulse.Core
 
         /// <summary>Maximum number of colors active at once.</summary>
         public int MaxColors => m_MaxColors;
+
+        /// <summary>Lateral speed of Moving obstacles in units per second.</summary>
+        public float MovingSpeed => m_MovingSpeed;
+
+        /// <summary>Lateral speed of Faster obstacles in units per second.</summary>
+        public float FasterSpeed => m_FasterSpeed;
 
         #endregion
     }

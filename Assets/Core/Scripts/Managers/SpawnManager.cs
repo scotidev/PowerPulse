@@ -15,6 +15,13 @@ namespace PowerPulse.Core
         // NOTE: TrackManager currently owns tile movement/recycling.
         // In a future refactor, merge tile management into this SpawnManager (per GDD).
 
+        #region STATIC
+
+        /// <summary>Chance of a moving obstacle being the faster variant once both are enabled.</summary>
+        private const float c_FasterChance = 0.35f;
+
+        #endregion
+
         #region SERIALIZED FIELDS
 
         [Header("References")]
@@ -52,6 +59,8 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("Lateral speed of Faster obstacles in units per second.")]
         private float m_FasterSpeed = 3f;
+
+        [Header("Safety")]
 
         [SerializeField, Tooltip("Maximum number of obstacles spawned in the same row (safety rule: never block every lane).")]
         private int m_MaxObstaclesPerRow = 1;
@@ -239,6 +248,27 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
+        /// Chooses the behaviour of a newly spawned obstacle based on the
+        /// milestones applied by the RunManager. Static until the first moving
+        /// milestone; Faster only after the faster milestone.
+        /// </summary>
+        /// <returns>The behaviour to apply to the obstacle.</returns>
+        private ObstacleBehaviour ChooseBehaviour()
+        {
+            if (m_RunManager.FasterEnabled && Random.value < c_FasterChance)
+            {
+                return ObstacleBehaviour.Faster;
+            }
+
+            if (m_RunManager.MovingEnabled)
+            {
+                return ObstacleBehaviour.Moving;
+            }
+
+            return ObstacleBehaviour.Static;
+        }
+
+        /// <summary>
         /// Handles the player death: stops spawning new obstacles and lets the
         /// existing ones keep moving so the death is readable.
         /// </summary>
@@ -287,7 +317,60 @@ namespace PowerPulse.Core
         /// </summary>
         private void SpawnObstacle()
         {
-            int lane = Random.Range(0, m_LaneCount);
+            int obstacleCount = Mathf.Clamp(m_RunManager.MaxObstaclesPerRow, 1, m_MaxObstaclesPerRow);
+            int[] lanes = PickFreeLanes(obstacleCount);
+
+            for (int i = 0; i < lanes.Length; i++)
+            {
+                SpawnSingleObstacle(lanes[i]);
+            }
+        }
+
+        /// <summary>
+        /// Picks random lanes for the obstacles of this row, keeping at least one
+        /// lane free so the player always has a way through (safety rule).
+        /// </summary>
+        /// <param name="count">How many obstacles the row needs.</param>
+        /// <returns>The lanes chosen for the obstacles.</returns>
+        private int[] PickFreeLanes(int count)
+        {
+            int[] lanes = new int[m_LaneCount];
+
+            for (int i = 0; i < m_LaneCount; i++)
+            {
+                lanes[i] = i;
+            }
+
+            // Fisher-Yates shuffle.
+            for (int i = lanes.Length - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                int temp = lanes[i];
+                lanes[i] = lanes[j];
+                lanes[j] = temp;
+            }
+
+            // One lane is deliberately left unused, so the row is always passable.
+            int obstacleCount = Mathf.Min(count, m_LaneCount - 1);
+
+            int[] result = new int[obstacleCount];
+
+            for (int i = 0; i < obstacleCount; i++)
+            {
+                result[i] = lanes[i];
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Spawns a single obstacle in the given lane, using a random prefab from
+        /// the catalog, a random color in play and the behaviour allowed by the
+        /// current milestone.
+        /// </summary>
+        /// <param name="lane">Lane index (0 to LaneCount - 1).</param>
+        private void SpawnSingleObstacle(int lane)
+        {
             float x = (lane - (m_LaneCount - 1) * 0.5f) * m_LaneWidth;
 
             GameObject prefab = m_Catalog.ObstaclePrefabs[Random.Range(0, m_Catalog.ObstaclePrefabs.Count)];
@@ -310,7 +393,9 @@ namespace PowerPulse.Core
             instance.transform.position = new Vector3(x, component.Size.y * 0.5f, m_TrackManager.FrontZ);
             component.SourcePrefab = prefab;
             component.SetColor(GetRandomSpawnColor());
-            component.SetBehaviour(component.Behaviour, GetBehaviourSpeed(component.Behaviour));
+
+            ObstacleBehaviour behaviour = ChooseBehaviour();
+            component.SetBehaviour(behaviour, GetBehaviourSpeed(behaviour));
 
             ActiveObstacle active = new ActiveObstacle { Prefab = prefab, Instance = instance };
             m_ActiveObstacles.Add(active);

@@ -248,6 +248,7 @@ namespace PowerPulse.Player
             m_ScoreManager.OnShieldChanged += HandleShieldChanged;
             m_ScoreManager.OnBoostChanged += HandleBoostChanged;
             m_ScoreManager.OnPlayerDied += HandlePlayerDied;
+            m_ScoreManager.OnRunReset += HandleRunReset;
         }
 
         /// <summary>
@@ -264,6 +265,7 @@ namespace PowerPulse.Player
             m_ScoreManager.OnShieldChanged -= HandleShieldChanged;
             m_ScoreManager.OnBoostChanged -= HandleBoostChanged;
             m_ScoreManager.OnPlayerDied -= HandlePlayerDied;
+            m_ScoreManager.OnRunReset -= HandleRunReset;
         }
 
         /// <summary>Applies the given color to the player material.</summary>
@@ -348,6 +350,20 @@ namespace PowerPulse.Player
             }
 
             m_Death.Die();
+        }
+
+        /// <summary>
+        /// Restores the player state when a new run starts.
+        /// </summary>
+        private void HandleRunReset()
+        {
+            ApplyBoost(new List<ColorId>());
+            ApplyShield(false);
+
+            if (m_Death != null)
+            {
+                m_Death.ResetPlayer();
+            }
         }
 
         #endregion

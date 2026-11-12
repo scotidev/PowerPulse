@@ -7,6 +7,36 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
+## Fase 8 — Portais de cor
+
+### Added
+
+- `Portal`: translucent arc that crosses the whole track. The player cannot dodge it; crossing it changes the active color and unlocks the next color in the palette order. Tinted through a `MaterialPropertyBlock` and recycled by the shared `ObjectPool`.
+- `PortalManager`: spawns a portal every `PortalInterval` meters (500 m by default, configurable), chooses the next color from `SO_ColorPalette.UnlockOrder`, applies the color change on crossing, and recycles the portals behind the camera.
+- `Config_GameBalance.PortalObstacleGap` so a portal never spawns on top of an obstacle.
+
+### Changed
+
+- The unlock order (Red → Pink → Blue → Cyan → Purple) is now the progression source. The first two colors are active at the start; each portal unlocks the next one, up to the five.
+- Once all five colors are unlocked, portals keep changing the active color randomly among the unlocked ones.
+- The `Portal` component does **not** reference the `ScoreManager`: it only detects the crossing and notifies the `PortalManager` (a scene object), which applies the color change. A prefab cannot reference scene objects, so the responsibility moved to the manager.
+
+## Fase 7 — Progressão e dificuldade
+
+### Added
+
+- `Config_GameBalance.DifficultyMilestone`: ordered, Inspector-configurable milestones (distance, speed, moving/faster enable, max obstacles per row).
+- `RunManager` now reacts to milestones on events (`OnMilestoneReached`) instead of recalculating the difficulty every frame. Exposes `MovingEnabled`, `FasterEnabled` and `MaxObstaclesPerRow`.
+- `SpawnManager` activates `Moving`/`Faster` behaviours according to the current milestone and spawns up to `MaxObstaclesPerRow` obstacles per row.
+- `SpawnManager.PickFreeLanes()`: always leaves at least one lane free, so no row can block the whole track (safety rule).
+- `ScoreManager.OnRunReset`: a new run resets the spawn manager, the portal manager and the player, so a restart starts from zero.
+- `PlayerDeath.ResetPlayer()` and `PlayerController.ResetMovement()` restore the player (components, rigidbody, lane, renderers) on restart.
+
+### Changed
+
+- The obstacle behaviour is no longer read from the prefab: it is decided by the active milestone, so the difficulty curve is data-driven.
+- Obstacles are avoidable by lane change or jump — no "jump-only" obstacle exists, matching the player's tools.
+
 ## Fase 6 — Obstáculos, coleta e pontuação
 
 ### Added

@@ -123,6 +123,58 @@ namespace PowerPulse.Player
             Debug.Log("[PlayerDeath] Death animation started.");
         }
 
+        /// <summary>
+        /// Restores the player for a new run: re-enables the components, the
+        /// rigidbody, the renderers and resets the scale.
+        /// </summary>
+        public void ResetPlayer()
+        {
+            m_IsDying = false;
+            m_HasFinished = false;
+            m_Elapsed = 0f;
+            m_BlinkCount = 0;
+
+            if (m_Controller != null)
+            {
+                m_Controller.enabled = true;
+            }
+
+            if (m_Collision != null)
+            {
+                m_Collision.enabled = true;
+            }
+
+            if (m_Rb != null)
+            {
+                m_Rb.isKinematic = false;
+                m_Rb.linearVelocity = Vector3.zero;
+                m_Rb.angularVelocity = Vector3.zero;
+            }
+
+            if (m_Trail != null)
+            {
+                m_Trail.enabled = true;
+                m_Trail.Clear();
+            }
+
+            Renderer[] renderers = GetComponentsInChildren<Renderer>();
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].enabled = true;
+            }
+
+            if (m_Controller != null)
+            {
+                m_Controller.ResetMovement();
+            }
+
+            transform.localScale = Vector3.one * c_RestScale;
+            gameObject.SetActive(true);
+
+            Debug.Log("[PlayerDeath] Player restored for a new run.");
+        }
+
         #endregion
 
 

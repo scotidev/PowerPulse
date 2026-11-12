@@ -88,6 +88,11 @@ namespace PowerPulse.Player
             m_TargetLane = 0;
         }
 
+        private void OnEnable()
+        {
+            ResetMovement();
+        }
+
         private void Update()
         {
             ReadInput();
@@ -103,6 +108,27 @@ namespace PowerPulse.Player
 
 
         #region PUBLIC METHODS
+
+        /// <summary>
+        /// Resets the player position and lane for a new run.
+        /// </summary>
+        public void ResetMovement()
+        {
+            m_TargetLane = 0;
+
+            if (m_Rb != null)
+            {
+                m_Rb.linearVelocity = Vector3.zero;
+                m_Rb.angularVelocity = Vector3.zero;
+            }
+
+            transform.position = new Vector3(0f, transform.position.y, transform.position.z);
+
+            if (m_Trail != null)
+            {
+                m_Trail.Clear();
+            }
+        }
 
         /// <summary>
         /// Moves the player exactly one lane in the given direction.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using PowerPulse.Environment;
 using PowerPulse.Obstacles;
 
 namespace PowerPulse.Core
@@ -40,6 +41,12 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("Shared object pool used to recycle the collected obstacles.")]
         private ObjectPool m_Pool;
+
+        [SerializeField, Tooltip("Spawn manager reset when a new run starts (optional, assigned automatically when empty).")]
+        private SpawnManager m_SpawnManager;
+
+        [SerializeField, Tooltip("Portal manager reset when a new run starts (optional, assigned automatically when empty).")]
+        private PortalManager m_PortalManager;
 
         [Header("Starting Color")]
 
@@ -111,6 +118,9 @@ namespace PowerPulse.Core
         /// <summary>Raised when an obstacle is collected: points and world position.</summary>
         public event Action<int, Vector3> OnCollected;
 
+        /// <summary>Raised when a new run starts, so the scene systems reset.</summary>
+        public event Action OnRunReset;
+
         /// <summary>Raised when the player dies (no shield left).</summary>
         public event Action OnPlayerDied;
 
@@ -125,6 +135,7 @@ namespace PowerPulse.Core
         private void Awake()
         {
             ActiveColor = m_StartingColor;
+            ResolveRunSystems();
         }
 
         private void OnEnable()
@@ -144,7 +155,8 @@ namespace PowerPulse.Core
         #region PUBLIC METHODS
 
         /// <summary>
-        /// Resets the score, the colors and the shield for a new run.
+        /// Resets the score, the colors and the shield for a new run. Also resets
+        /// the run-dependent scene systems so a restart starts from zero.
         /// </summary>
         public void Reset()
         {
@@ -157,6 +169,10 @@ namespace PowerPulse.Core
             BuildUnlockedColors();
             ActiveColor = m_StartingColor;
 
+            m_SpawnManager?.ResetRun();
+            m_PortalManager?.ResetRun();
+
+            OnRunReset?.Invoke();
             OnScoreChanged?.Invoke(m_Score);
             OnShieldChanged?.Invoke(m_HasShield);
             OnBoostChanged?.Invoke(m_BoostColors);
@@ -349,6 +365,23 @@ namespace PowerPulse.Core
 
 
         #region PRIVATE METHODS
+
+        /// <summary>
+        /// Finds the run systems in the scene when they were not assigned in the
+        /// Inspector. Keeps the wiring optional so the scene stays easy to set up.
+        /// </summary>
+        private void ResolveRunSystems()
+        {
+            if (m_SpawnManager == null)
+            {
+                m_SpawnManager = FindFirstObjectByType<SpawnManager>();
+            }
+
+            if (m_PortalManager == null)
+            {
+                m_PortalManager = FindFirstObjectByType<PortalManager>();
+            }
+        }
 
         /// <summary>
         /// Builds the initial list of unlocked colors from the palette order.

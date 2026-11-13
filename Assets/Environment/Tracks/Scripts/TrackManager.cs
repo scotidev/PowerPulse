@@ -100,10 +100,10 @@ namespace PowerPulse.Environment
             float delta = Time.deltaTime * m_RunManager.Speed;
 
             // The TrackManager owns the movement of the whole scene: tiles AND
-            // obstacles move by the same distance in the same frame, so they can
-            // never drift apart.
+            // every spawned element (obstacles, portals, power-ups) move by the
+            // same distance in the same frame, so they can never drift apart.
             MoveTiles(delta);
-            m_SpawnManager?.MoveObstaclesWithTrack(delta);
+            m_SpawnManager?.MoveSceneWithTrack(delta);
 
             UpdateFrontZ();
             RecycleTiles();

@@ -7,7 +7,7 @@ namespace PowerPulse.Environment
     /// A translucent arc that crosses the whole track. The player cannot dodge
     /// it: crossing it changes the active color and unlocks the next color in
     /// the palette order. Recycled through the shared ObjectPool.
-    /// This component only detects the crossing; the PortalManager (which lives
+    /// This component only detects the crossing; the SpawnManager (which lives
     /// in the scene) applies the color change, because a prefab cannot reference
     /// scene objects.
     /// </summary>
@@ -35,7 +35,7 @@ namespace PowerPulse.Environment
         #region FIELDS
 
         private MaterialPropertyBlock m_PropertyBlock;
-        private PortalManager m_Manager;
+        private SpawnManager m_Manager;
         private bool m_HasBeenCrossed;
 
         #endregion
@@ -92,7 +92,7 @@ namespace PowerPulse.Environment
         /// </summary>
         /// <param name="color">Color the player will assume.</param>
         /// <param name="manager">Manager that applies the color change.</param>
-        public void SetPortal(ColorId color, PortalManager manager)
+        public void SetPortal(ColorId color, SpawnManager manager)
         {
             m_TargetColor = color;
             m_Manager = manager;
@@ -124,7 +124,7 @@ namespace PowerPulse.Environment
 
             if (m_Manager == null)
             {
-                Debug.LogError("[Portal] The PortalManager is not assigned. The color cannot change.", this);
+                Debug.LogError("[Portal] The SpawnManager is not assigned. The color cannot change.", this);
                 return;
             }
 

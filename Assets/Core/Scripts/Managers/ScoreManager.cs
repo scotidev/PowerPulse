@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using PowerPulse.Environment;
 using PowerPulse.Obstacles;
 
 namespace PowerPulse.Core
@@ -44,9 +43,6 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("Spawn manager reset when a new run starts (optional, assigned automatically when empty).")]
         private SpawnManager m_SpawnManager;
-
-        [SerializeField, Tooltip("Portal manager reset when a new run starts (optional, assigned automatically when empty).")]
-        private PortalManager m_PortalManager;
 
         [Header("Starting Color")]
 
@@ -170,7 +166,6 @@ namespace PowerPulse.Core
             ActiveColor = m_StartingColor;
 
             m_SpawnManager?.ResetRun();
-            m_PortalManager?.ResetRun();
 
             OnRunReset?.Invoke();
             OnScoreChanged?.Invoke(m_Score);
@@ -375,11 +370,6 @@ namespace PowerPulse.Core
             if (m_SpawnManager == null)
             {
                 m_SpawnManager = FindFirstObjectByType<SpawnManager>();
-            }
-
-            if (m_PortalManager == null)
-            {
-                m_PortalManager = FindFirstObjectByType<PortalManager>();
             }
         }
 

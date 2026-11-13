@@ -359,50 +359,6 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
-        /// Removes every active obstacle too close to a world Z. Called when a
-        /// portal spawns, so the player never meets a row of obstacles together
-        /// with the portal. The clearance is asymmetric: ahead of the portal it
-        /// is larger, because those obstacles are the ones the player would meet
-        /// right after crossing.
-        /// </summary>
-        /// <param name="worldZ">World Z of the portal.</param>
-        public void ClearObstaclesNear(float worldZ)
-        {
-            float clearanceBehind = GetClearanceBehind();
-            float clearanceAhead = GetClearanceAhead();
-
-            int removed = 0;
-
-            for (int i = m_ActiveObstacles.Count - 1; i >= 0; i--)
-            {
-                ActiveObstacle active = m_ActiveObstacles[i];
-
-                if (active.Instance == null)
-                {
-                    m_ActiveObstacles.RemoveAt(i);
-                    continue;
-                }
-
-                float offset = active.Instance.transform.position.z - worldZ;
-                float limit = offset >= 0f ? clearanceAhead : clearanceBehind;
-
-                if (Mathf.Abs(offset) > limit)
-                {
-                    continue;
-                }
-
-                m_Pool.Release(active.Prefab, active.Instance);
-                m_ActiveObstacles.RemoveAt(i);
-                removed++;
-            }
-
-            if (removed > 0)
-            {
-                Debug.Log($"[SpawnManager] Cleared {removed} obstacle(s) near the portal at {worldZ:0} m.");
-            }
-        }
-
-        /// <summary>
         /// Spawns a new obstacle row when the spawn spacing and the initial safe
         /// distance are reached.
         /// </summary>
@@ -489,6 +445,67 @@ namespace PowerPulse.Core
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Returns the clearance applied behind the portal, so other systems (the
+        /// portal spawner) can keep the same distance.
+        /// </summary>
+        /// <returns>Clearance in meters.</returns>
+        public float GetPortalClearanceBehind()
+        {
+            return GetClearanceBehind();
+        }
+
+        /// <summary>
+        /// Returns the clearance applied ahead of the portal, so other systems can
+        /// keep the same distance.
+        /// </summary>
+        /// <returns>Clearance in meters.</returns>
+        public float GetPortalClearanceAhead()
+        {
+            return GetClearanceAhead();
+        }
+
+        /// <summary>
+        /// Finds a world Z at least the given clearance away from every active
+        /// obstacle, starting from the desired Z and moving forward when needed.
+        /// Used by the PortalManager to place a portal without landing on an
+        /// obstacle that is already on the track.
+        /// </summary>
+        /// <param name="desiredZ">Preferred world Z for the portal.</param>
+        /// <param name="clearance">Minimum distance from any obstacle.</param>
+        /// <returns>A world Z far enough from every obstacle.</returns>
+        public float FindSafeSpawnZ(float desiredZ, float clearance)
+        {
+            if (clearance <= 0f)
+            {
+                return desiredZ;
+            }
+
+            float safeZ = desiredZ;
+
+            for (int i = 0; i < m_ActiveObstacles.Count; i++)
+            {
+                ActiveObstacle active = m_ActiveObstacles[i];
+
+                if (active.Instance == null)
+                {
+                    continue;
+                }
+
+                float obstacleZ = active.Instance.transform.position.z;
+
+                if (Mathf.Abs(obstacleZ - safeZ) >= clearance)
+                {
+                    continue;
+                }
+
+                // Push the candidate forward so it clears this obstacle.
+                safeZ = obstacleZ + clearance;
+            }
+
+            return safeZ;
         }
 
         /// <summary>

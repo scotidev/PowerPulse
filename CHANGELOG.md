@@ -25,8 +25,9 @@ Entries are grouped by implementation phase, newest first.
 
 ### Fixed
 
-- **Obstacles spawning together with the portal.** The obstacles spawn at the front edge of the track and the portal spawns at the same place, so the player met both at once. Now the portal clears the nearby obstacles when it spawns, and the obstacle spawner refuses to place a row within the clearance distance of any active portal.
+- **Obstacles spawning together with the portal.** The portal is now placed at a safe world Z, pushed forward from any active obstacle that would be too close. Nothing is removed from the track: the obstacles that already exist keep moving, and the portal simply spawns further ahead.
 - **Obstacles ahead of the portal.** The clearance now has two values: 40 m behind the portal and 60 m ahead of it. Validated by simulation: the player gets **40 m of breathing room before** the portal and **60 m after** it.
+- **Removed `ClearObstaclesNear`.** It used to recycle every obstacle within the clearance radius, which made all obstacles vanish when a portal appeared. The prevention of new spawns is enough; existing obstacles are never removed.
 
 ## Fase 9 — Correções de estabilidade (pós-Fases 7/8)
 

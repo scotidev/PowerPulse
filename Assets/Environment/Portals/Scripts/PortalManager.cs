@@ -311,6 +311,8 @@ namespace PowerPulse.Environment
         /// Spawns a portal at the front of the track with the next color in the
         /// unlock order. When every color is already unlocked, the portal grants a
         /// random color among the unlocked ones.
+        /// The portal is placed far enough from every active obstacle, so the
+        /// player never meets a row of obstacles together with the portal.
         /// </summary>
         private void SpawnPortal()
         {
@@ -329,14 +331,31 @@ namespace PowerPulse.Environment
             Portal portal = instance.GetComponent<Portal>();
             portal.SetPortal(GetNextPortalColor(), this);
 
-            instance.transform.position = new Vector3(0f, 0f, m_TrackManager.FrontZ);
+            instance.transform.position = new Vector3(0f, 0f, GetSafePortalZ());
             m_ActivePortals.Add(instance);
 
-            // A portal must never arrive together with a row of obstacles: the
-            // player needs a clear stretch to read the new color.
-            GetSpawnManager()?.ClearObstaclesNear(instance.transform.position.z);
-
             Debug.Log($"[PortalManager] Portal spawned at {m_RunManager.Distance:0} m with color {portal.TargetColor}.");
+        }
+
+        /// <summary>
+        /// Returns a world Z far enough from every active obstacle. The portal is
+        /// placed at the front edge of the track when there is room, or pushed
+        /// further ahead when an obstacle would be too close.
+        /// </summary>
+        /// <returns>World Z where the portal can spawn safely.</returns>
+        private float GetSafePortalZ()
+        {
+            float desiredZ = m_TrackManager.FrontZ;
+            float clearance = GetSpawnManager()?.GetPortalClearanceBehind() ?? 0f;
+
+            if (clearance <= 0f)
+            {
+                return desiredZ;
+            }
+
+            float safeZ = GetSpawnManager()?.FindSafeSpawnZ(desiredZ, clearance) ?? desiredZ;
+
+            return Mathf.Max(desiredZ, safeZ);
         }
 
         /// <summary>

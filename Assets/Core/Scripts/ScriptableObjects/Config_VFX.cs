@@ -1,0 +1,202 @@
+using UnityEngine;
+
+namespace PowerPulse.Core
+{
+    /// <summary>
+    /// Tuning asset for the camera effects and the visual effects (VFX). Every
+    /// intensity, duration and prefab used by the <c>CameraFX</c> lives here so
+    /// the juice can be adjusted without touching code.
+    /// </summary>
+    [CreateAssetMenu(menuName = "PowerPulse/VFX Settings")]
+    public class Config_VFX : ScriptableObject
+    {
+        #region SERIALIZED FIELDS
+
+        [Header("Shake")]
+        [SerializeField, Tooltip("Camera shake amplitude when an obstacle is collected (world units).")]
+        private float m_CollectShakeAmplitude = 0.08f;
+
+        [SerializeField, Tooltip("Camera shake duration when an obstacle is collected (seconds).")]
+        private float m_CollectShakeDuration = 0.18f;
+
+        [SerializeField, Tooltip("Camera shake frequency when an obstacle is collected.")]
+        private float m_CollectShakeFrequency = 25f;
+
+        [SerializeField, Tooltip("Camera shake amplitude when the player dies (world units).")]
+        private float m_DeathShakeAmplitude = 0.35f;
+
+        [SerializeField, Tooltip("Camera shake duration when the player dies (seconds).")]
+        private float m_DeathShakeDuration = 0.6f;
+
+        [SerializeField, Tooltip("Camera shake frequency when the player dies.")]
+        private float m_DeathShakeFrequency = 18f;
+
+        [Header("FOV")]
+        [SerializeField, Tooltip("Extra field of view applied while a boost is active (degrees).")]
+        private float m_BoostFovPunch = 8f;
+
+        [SerializeField, Tooltip("How fast the field of view follows the boost target (higher = tighter).")]
+        private float m_FovSpeed = 8f;
+
+        [Header("Flash")]
+        [SerializeField, Tooltip("Color of the full-screen flash.")]
+        private Color m_FlashColor = Color.white;
+
+        [SerializeField, Tooltip("Maximum alpha of the full-screen flash (0 to 1).")]
+        private float m_FlashAlpha = 0.55f;
+
+        [SerializeField, Tooltip("Flash duration on death (seconds).")]
+        private float m_DeathFlashDuration = 0.35f;
+
+        [SerializeField, Tooltip("Flash duration when crossing a portal (seconds).")]
+        private float m_PortalFlashDuration = 0.22f;
+
+        [Header("Post-processing")]
+        [SerializeField, Tooltip("Extra Bloom intensity while a boost is active.")]
+        private float m_BoostBloomIntensity = 1.5f;
+
+        [SerializeField, Tooltip("Extra Bloom intensity while the death effect plays.")]
+        private float m_DeathBloomIntensity = 0.8f;
+
+        [SerializeField, Tooltip("Extra Chromatic Aberration intensity while the death effect plays.")]
+        private float m_DeathChromaticAberration = 0.6f;
+
+        [SerializeField, Tooltip("How long the death post-processing boost lasts (seconds).")]
+        private float m_DeathPostFxDuration = 0.5f;
+
+        [SerializeField, Tooltip("How fast Bloom and Chromatic Aberration return to their base values (higher = faster).")]
+        private float m_PostProcessingRestoreSpeed = 6f;
+
+        [Header("VFX Prefabs")]
+        [SerializeField, Tooltip("VFX spawned when an obstacle is collected.")]
+        private GameObject m_CollectVfx;
+
+        [SerializeField, Tooltip("VFX spawned when the player dies.")]
+        private GameObject m_DeathVfx;
+
+        [SerializeField, Tooltip("VFX spawned when the player dashes.")]
+        private GameObject m_DashVfx;
+
+        [SerializeField, Tooltip("VFX spawned when the player crosses a portal.")]
+        private GameObject m_PortalVfx;
+
+        [SerializeField, Tooltip("Fallback VFX for power-ups whose catalog entry has no VfxPrefab assigned.")]
+        private GameObject m_PowerUpVfx;
+
+        [Header("Pooling")]
+        [SerializeField, Tooltip("How many collect VFX instances are pre-created.")]
+        private int m_CollectPrewarm = 8;
+
+        [SerializeField, Tooltip("How many death VFX instances are pre-created.")]
+        private int m_DeathPrewarm = 2;
+
+        [SerializeField, Tooltip("How many dash VFX instances are pre-created.")]
+        private int m_DashPrewarm = 6;
+
+        [SerializeField, Tooltip("How many portal VFX instances are pre-created.")]
+        private int m_PortalPrewarm = 2;
+
+        [SerializeField, Tooltip("How many power-up VFX instances are pre-created.")]
+        private int m_PowerUpPrewarm = 4;
+
+        [SerializeField, Tooltip("Uniform scale applied to every spawned VFX.")]
+        private float m_VfxScale = 1f;
+
+        [SerializeField, Tooltip("Fallback duration (seconds) for a VFX prefab without a VFXClip component.")]
+        private float m_DefaultVfxDuration = 0.6f;
+
+        #endregion
+
+
+        #region PROPERTIES
+
+        /// <summary>Camera shake amplitude when an obstacle is collected.</summary>
+        public float CollectShakeAmplitude => m_CollectShakeAmplitude;
+
+        /// <summary>Camera shake duration when an obstacle is collected.</summary>
+        public float CollectShakeDuration => m_CollectShakeDuration;
+
+        /// <summary>Camera shake frequency when an obstacle is collected.</summary>
+        public float CollectShakeFrequency => m_CollectShakeFrequency;
+
+        /// <summary>Camera shake amplitude when the player dies.</summary>
+        public float DeathShakeAmplitude => m_DeathShakeAmplitude;
+
+        /// <summary>Camera shake duration when the player dies.</summary>
+        public float DeathShakeDuration => m_DeathShakeDuration;
+
+        /// <summary>Camera shake frequency when the player dies.</summary>
+        public float DeathShakeFrequency => m_DeathShakeFrequency;
+
+        /// <summary>Extra field of view applied while a boost is active.</summary>
+        public float BoostFovPunch => m_BoostFovPunch;
+
+        /// <summary>How fast the field of view follows the boost target.</summary>
+        public float FovSpeed => m_FovSpeed;
+
+        /// <summary>Color of the full-screen flash.</summary>
+        public Color FlashColor => m_FlashColor;
+
+        /// <summary>Maximum alpha of the full-screen flash.</summary>
+        public float FlashAlpha => m_FlashAlpha;
+
+        /// <summary>Flash duration on death.</summary>
+        public float DeathFlashDuration => m_DeathFlashDuration;
+
+        /// <summary>Flash duration when crossing a portal.</summary>
+        public float PortalFlashDuration => m_PortalFlashDuration;
+
+        /// <summary>Extra Bloom intensity while a boost is active.</summary>
+        public float BoostBloomIntensity => m_BoostBloomIntensity;
+
+        /// <summary>Extra Bloom intensity while the death effect plays.</summary>
+        public float DeathBloomIntensity => m_DeathBloomIntensity;
+
+        /// <summary>Extra Chromatic Aberration intensity while the death effect plays.</summary>
+        public float DeathChromaticAberration => m_DeathChromaticAberration;
+
+        /// <summary>How long the death post-processing boost lasts.</summary>
+        public float DeathPostFxDuration => m_DeathPostFxDuration;
+
+        /// <summary>How fast Bloom and Chromatic Aberration return to their base values.</summary>
+        public float PostProcessingRestoreSpeed => m_PostProcessingRestoreSpeed;
+
+        /// <summary>VFX spawned when an obstacle is collected.</summary>
+        public GameObject CollectVfx => m_CollectVfx;
+
+        /// <summary>VFX spawned when the player dies.</summary>
+        public GameObject DeathVfx => m_DeathVfx;
+
+        /// <summary>VFX spawned when the player dashes.</summary>
+        public GameObject DashVfx => m_DashVfx;
+
+        /// <summary>VFX spawned when the player crosses a portal.</summary>
+        public GameObject PortalVfx => m_PortalVfx;
+
+        /// <summary>Fallback VFX for power-ups.</summary>
+        public GameObject PowerUpVfx => m_PowerUpVfx;
+
+        /// <summary>How many collect VFX instances are pre-created.</summary>
+        public int CollectPrewarm => m_CollectPrewarm;
+
+        /// <summary>How many death VFX instances are pre-created.</summary>
+        public int DeathPrewarm => m_DeathPrewarm;
+
+        /// <summary>How many dash VFX instances are pre-created.</summary>
+        public int DashPrewarm => m_DashPrewarm;
+
+        /// <summary>How many portal VFX instances are pre-created.</summary>
+        public int PortalPrewarm => m_PortalPrewarm;
+
+        /// <summary>How many power-up VFX instances are pre-created.</summary>
+        public int PowerUpPrewarm => m_PowerUpPrewarm;
+
+        /// <summary>Uniform scale applied to every spawned VFX.</summary>
+        public float VfxScale => m_VfxScale;
+
+        /// <summary>Fallback duration for a VFX prefab without a VFXClip component.</summary>
+        public float DefaultVfxDuration => m_DefaultVfxDuration;
+
+        #endregion
+    }
+}

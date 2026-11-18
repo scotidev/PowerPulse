@@ -16,18 +16,19 @@ Decisões confirmadas:
 
 ## Estado atual
 
-| Fase | Status |
-| --- | --- |
-| 0 — Preparação | concluída ✅ |
-| 1 — Estrutura arquitetural | concluída ✅ |
-| 2 — Dados configuráveis | concluída ✅ |
-| 3 — Fundação visual e física | concluída ✅ |
-| 4 — Jogador e controles | concluída ✅ |
+| Fase                                   | Status       |
+| -------------------------------------- | ------------ |
+| 0 — Preparação                         | concluída ✅ |
+| 1 — Estrutura arquitetural             | concluída ✅ |
+| 2 — Dados configuráveis                | concluída ✅ |
+| 3 — Fundação visual e física           | concluída ✅ |
+| 4 — Jogador e controles                | concluída ✅ |
 | 5 — Run básica e deslocamento da pista | concluída ✅ |
-| 6 — Obstáculos, coleta e pontuação | concluída ✅ |
-| 7 — Progressão e dificuldade | concluída ✅ |
-| 8 — Portais de cor | concluída ✅ |
-| 9 — Power-ups | próxima |
+| 6 — Obstáculos, coleta e pontuação     | concluída ✅ |
+| 7 — Progressão e dificuldade           | concluída ✅ |
+| 8 — Portais de cor                     | concluída ✅ |
+| 9 — Power-ups                          | concluída ✅ |
+| 10 — Câmera, efeitos e juice           | em andamento 🛠 |
 
 **Decisões tomadas durante a Fase 6:**
 
@@ -42,6 +43,21 @@ Decisões confirmadas:
 - Os marcos de dificuldade são **data-driven** (`Config_GameBalance.Milestones`), aplicados uma vez por evento.
 - Obstáculos podem ser evitados por **troca de lane ou pulo** — não existe obstáculo "só de pulo".
 - Regra de segurança: `PickFreeLanes` sempre deixa **uma lane livre** por fileira.
+
+**Decisões tomadas durante a Fase 9:**
+
+- Os power-ups usam o `ObjectPool` compartilhado; o `SO_PowerUpCatalog` guarda tipo, duração, cores, SFX e VFX de cada item.
+- O `PowerUp` não referencia o `ScoreManager`: ele notifica o `SpawnManager`, que é o objeto da cena que conhece o manager e o catálogo.
+- O spawn respeita clearance de obstáculo e de portal, intervalo mínimo e a disponibilidade da cor (boost de 2/3 cores só aparece quando essas cores estão desbloqueadas).
+- O shield é independente; um novo boost substitui o boost atual, sem estados contraditórios.
+
+**Decisões tomadas durante a Fase 10:**
+
+- O `CameraFX` é o dono de todos os efeitos (shake, FOV, flash, Bloom/CA e VFX), vivendo na Main Camera logo após o `CameraFollow`.
+- O flash usa um Canvas overlay; se a cena não tiver um, o `CameraFX` cria um em runtime.
+- Bloom/CA usam o `Global Volume Profile` atual, com save/restore dos valores base.
+- Os VFX são data holders (`VFXClip`) com `ParticleSystem` criado em runtime e pooling pelo `ObjectPool`.
+- Sem hit-stop; a intensidade é limitada para preservar a legibilidade das cores.
 
 ## Visão do jogo
 
@@ -377,6 +393,13 @@ Implementar os itens com pool próprio:
 
 **Validação:** testar duração, expiração, combinação e coleta durante o pulo ou dash.
 
+**Notas de implementação (Fase 9):**
+
+- O `PowerUp` não referencia o `ScoreManager`: ele notifica o `SpawnManager`, que é o objeto da cena que conhece o manager e o catálogo.
+- O `SO_PowerUpCatalog.PowerUpEntry` já trazia `Sfx` e `VfxPrefab`; a Fase 10 preencheu o `VfxPrefab` e o `Sfx` fica para a Fase 13.
+- O piscar do boost acelera conforme o tempo restante (`PlayerColor`), usando `BoostDuration` exposto pelo `ScoreManager`.
+- O shield é independente dos boosts; um novo boost substitui o boost atual, sem deixar estados contraditórios.
+
 ## Fase 10 — Câmera, efeitos e juice
 
 1. Criar `CameraFX`.
@@ -397,6 +420,14 @@ Implementar os itens com pool próprio:
 5. Ajustar a intensidade para preservar a legibilidade das cores.
 
 **Validação:** conferir se os efeitos dão impacto sem esconder obstáculos ou causar desconforto visual.
+
+**Notas de implementação (Fase 10):**
+
+- O `CameraFX` roda em `LateUpdate` com `[DefaultExecutionOrder]` para aplicar o shake depois do `CameraFollow`; o `CameraFollow` passou a expor `FollowPosition` e interpola a partir dela, sem ser contaminado pelo shake.
+- O `OnCollected` passou a carregar `ColorId` para tingir o VFX de coleta; não havia outros assinantes.
+- O `PlayerDeath` deixou de piscar: ele esconde a esfera e o VFX de morte (disparado por `OnPlayerDied`) assume o feedback.
+- O `PowerUpCatalog` foi preenchido com `VFX_PowerUp`; o campo `Sfx` segue para a Fase 13.
+- O flash usa um Canvas overlay; se a cena não tiver um, o `CameraFX` cria um em runtime.
 
 ## Fase 11 — Tutorial
 
@@ -534,7 +565,7 @@ Avaliar manualmente:
 - Facilidade de reinício.
 - Desempenho em WebGL mobile.
 
-## Fase 17 — Otimização para WebGL
+## Fase 17 — Otimização
 
 1. Validar 60 FPS em desktop.
 2. Testar em navegadores diferentes.

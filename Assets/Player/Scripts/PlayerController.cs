@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -77,6 +78,14 @@ namespace PowerPulse.Player
 
         /// <summary>Current target lane (-2 to +2).</summary>
         public int CurrentLane => m_TargetLane;
+
+        #endregion
+
+
+        #region EVENTS
+
+        /// <summary>Raised when the player dashes to another lane, with the direction (-1 or +1).</summary>
+        public event Action<int> OnDashed;
 
         #endregion
 
@@ -161,6 +170,7 @@ namespace PowerPulse.Player
             }
 
             m_TargetLane = newLane;
+            OnDashed?.Invoke(direction);
             StartCoroutine(DashTrailRoutine());
         }
 

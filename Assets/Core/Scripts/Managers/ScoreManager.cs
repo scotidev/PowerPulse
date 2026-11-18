@@ -57,6 +57,7 @@ namespace PowerPulse.Core
         private readonly List<ColorId> m_UnlockedColors = new List<ColorId>();
         private readonly List<ColorId> m_BoostColors = new List<ColorId>();
         private float m_BoostTimer;
+        private float m_BoostDuration;
         private bool m_HasShield;
         private bool m_IsRunActive;
         private int m_Score;
@@ -69,6 +70,9 @@ namespace PowerPulse.Core
 
         /// <summary>Currently active color of the player.</summary>
         public ColorId ActiveColor { get; private set; }
+
+        /// <summary>Color palette asset used by the run.</summary>
+        public SO_ColorPalette Palette => m_Palette;
 
         /// <summary>Colors the player is allowed to collect right now.</summary>
         public List<ColorId> UnlockedColors => m_UnlockedColors;
@@ -94,6 +98,9 @@ namespace PowerPulse.Core
         /// <summary>Remaining boost time in seconds.</summary>
         public float BoostTimeLeft => m_BoostTimer;
 
+        /// <summary>Total duration of the active boost in seconds.</summary>
+        public float BoostDuration => m_BoostDuration;
+
         #endregion
 
 
@@ -111,8 +118,8 @@ namespace PowerPulse.Core
         /// <summary>Raised when the active color changes.</summary>
         public event Action<ColorId> OnColorChanged;
 
-        /// <summary>Raised when an obstacle is collected: points and world position.</summary>
-        public event Action<int, Vector3> OnCollected;
+        /// <summary>Raised when an obstacle is collected: color, points and world position.</summary>
+        public event Action<ColorId, int, Vector3> OnCollected;
 
         /// <summary>Raised when a new run starts, so the scene systems reset.</summary>
         public event Action OnRunReset;
@@ -158,6 +165,7 @@ namespace PowerPulse.Core
         {
             m_Score = 0;
             m_BoostTimer = 0f;
+            m_BoostDuration = 0f;
             m_HasShield = false;
             m_IsRunActive = true;
             m_BoostColors.Clear();
@@ -215,7 +223,7 @@ namespace PowerPulse.Core
             m_Score += points;
 
             OnScoreChanged?.Invoke(m_Score);
-            OnCollected?.Invoke(points, position);
+            OnCollected?.Invoke(obstacle.ActiveColor, points, position);
             ScoreFeedback(position, points);
 
             // The obstacle is recycled AFTER the events, so the listeners still
@@ -258,7 +266,8 @@ namespace PowerPulse.Core
             if (m_HasShield)
             {
                 ConsumeShield();
-                OnCollected?.Invoke(0, obstacle != null ? obstacle.transform.position : transform.position);
+                OnCollected?.Invoke(obstacle != null ? obstacle.ActiveColor : ActiveColor, 0,
+                    obstacle != null ? obstacle.transform.position : transform.position);
                 return;
             }
 
@@ -312,7 +321,8 @@ namespace PowerPulse.Core
                 m_BoostColors.AddRange(colors);
             }
 
-            m_BoostTimer = Mathf.Max(0f, duration);
+            m_BoostDuration = Mathf.Max(0f, duration);
+            m_BoostTimer = m_BoostDuration;
             OnBoostChanged?.Invoke(m_BoostColors);
         }
 
@@ -411,6 +421,7 @@ namespace PowerPulse.Core
             if (m_BoostTimer <= 0f)
             {
                 m_BoostTimer = 0f;
+                m_BoostDuration = 0f;
                 m_BoostColors.Clear();
                 OnBoostChanged?.Invoke(m_BoostColors);
             }
@@ -441,6 +452,7 @@ namespace PowerPulse.Core
             m_IsRunActive = false;
             m_BoostColors.Clear();
             m_BoostTimer = 0f;
+            m_BoostDuration = 0f;
 
             if (m_Score > m_BestScore)
             {

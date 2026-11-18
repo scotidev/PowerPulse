@@ -45,11 +45,23 @@ namespace PowerPulse.CameraSystem
         #endregion
 
 
+        #region PROPERTIES
+
+        /// <summary>
+        /// Position calculated by the follow this frame, without any camera
+        /// effect offset. The <c>CameraFX</c> applies its shake on top of it.
+        /// </summary>
+        public Vector3 FollowPosition { get; private set; }
+
+        #endregion
+
+
         #region UNITY CALLBACKS
 
         private void Awake()
         {
             m_Offset = new Vector3(m_FollowX, m_Height, -m_Distance);
+            FollowPosition = transform.position;
         }
 
         private void LateUpdate()
@@ -68,11 +80,13 @@ namespace PowerPulse.CameraSystem
 
             if (m_Smoothing <= 0f)
             {
+                FollowPosition = desired;
                 transform.position = desired;
                 return;
             }
 
-            transform.position = Vector3.Lerp(transform.position, desired, m_Smoothing * Time.deltaTime);
+            FollowPosition = Vector3.Lerp(FollowPosition, desired, m_Smoothing * Time.deltaTime);
+            transform.position = FollowPosition;
         }
 
         #endregion

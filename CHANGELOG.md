@@ -7,7 +7,36 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
-## Fase 10 — Ajustes de ritmo e cobertura
+## Fase 10 — Câmera, efeitos e juice
+
+### Added
+
+- `CameraFX` (`Assets/Core/Scripts/Camera/`): shake de posição na coleta e na morte, punch de FOV no boost, flash de tela, ajustes temporários de Bloom/Chromatic Aberration e spawn/coloração/reciclagem dos VFX. Roda depois do `CameraFollow` e reage apenas aos eventos da run.
+- `VFXClip` (`Assets/Core/Scripts/VFX/`): VFX reutilizável com `ParticleSystem` criado em runtime; cada prefab é um data holder configurável.
+- `Config_VFX` + `VFXSettings.asset`: intensidades, durações, flash, Bloom/CA, prefabs de VFX, prewarm e escala.
+- Prefabs de VFX: `VFX_Collect`, `VFX_Death`, `VFX_Dash`, `VFX_Portal` e `VFX_PowerUp`.
+- Eventos `PlayerController.OnDashed`, `SpawnManager.OnPortalCrossed` e `SpawnManager.OnPowerUpCollected`.
+- `CameraFollow.FollowPosition`, para o shake ser aplicado sem interferir no suavizamento.
+
+### Changed
+
+- `ScoreManager.OnCollected` agora inclui `ColorId`, para tingir o VFX de coleta.
+- `PlayerDeath` deixou de piscar: esconde a esfera e deixa o VFX de morte assumir o feedback.
+- `PowerUpCatalog` passou a referenciar `VFX_PowerUp` no campo `VfxPrefab`.
+- O `ScoreManager` expõe `Palette` para os sistemas de VFX.
+- O flash usa um Canvas overlay (criado em runtime quando a cena não tem um), deixando o caminho pronto para o HUD da Fase 12.
+
+## Fase 9 — Power-ups
+
+### Added
+
+- `PowerUp` e os quatro prefabs (`ShieldPowerUp`, `BoostTwoPowerUp`, `BoostThreePowerUp`, `BoostAllPowerUp`), com rotação/flutuação e detecção de coleta.
+- `SO_PowerUpCatalog` com tipo, duração, cores, SFX e VFX por item.
+- Spawn de power-ups no `SpawnManager` com regras de não-sobreposição (obstáculo/portal), intervalo mínimo e disponibilidade por cores desbloqueadas.
+- Efeitos aplicados ao `ScoreManager`: shield (absorve uma colisão incompatível) e boosts de 2/3/todas as cores.
+- Piscar do boost na `PlayerColor`, com intervalo que acelera conforme o boost expira.
+
+## Ajustes de ritmo e cobertura (pós-Fase 8/9)
 
 ### Added
 
@@ -19,7 +48,7 @@ Entries are grouped by implementation phase, newest first.
 
 ### Changed
 
-- `TrackManager` now keeps **9 tiles** active (was 6) and starts the first tile at `z = -20`, so the track covers the whole visible area plus the region behind the camera. The end of the track is no longer visible.
+- `TrackManager` has **9 tiles** and `InitialTileZ = -20` as the new script defaults; the scene still uses 6 tiles / `z = 0` (kept as-is by decision). The end of the track should stop being visible once the scene is updated.
 - `TrackManager.InitialTileZ` and `TileCount` are configurable in the Inspector.
 - The portal clearance is now measured as the stretch the player still has to travel (the difference in world Z between the spawn point and the portal), not as an absolute world distance. This matters because the front edge of the track advances while the portals travel toward the camera.
 
@@ -29,7 +58,7 @@ Entries are grouped by implementation phase, newest first.
 - **Obstacles ahead of the portal.** The clearance now has two values: 40 m behind the portal and 60 m ahead of it. Validated by simulation: the player gets **40 m of breathing room before** the portal and **60 m after** it.
 - **Removed `ClearObstaclesNear`.** It used to recycle every obstacle within the clearance radius, which made all obstacles vanish when a portal appeared. The prevention of new spawns is enough; existing obstacles are never removed.
 
-## Fase 9 — Correções de estabilidade (pós-Fases 7/8)
+## Correções de estabilidade (pós-Fases 7/8)
 
 ### Fixed
 

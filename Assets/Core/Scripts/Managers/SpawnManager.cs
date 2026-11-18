@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 using PowerPulse.Environment;
 using PowerPulse.Obstacles;
 using PowerPulse.PowerUps;
@@ -180,6 +182,17 @@ namespace PowerPulse.Core
         private int m_NextColorIndex;
 
         private float m_DistanceSinceLastPowerUp;
+
+        #endregion
+
+
+        #region EVENTS
+
+        /// <summary>Raised when the player crosses a color portal, with the new active color and the portal position.</summary>
+        public event Action<ColorId, Vector3> OnPortalCrossed;
+
+        /// <summary>Raised when a power-up is collected, with its catalog entry and position.</summary>
+        public event Action<SO_PowerUpCatalog.PowerUpEntry, Vector3> OnPowerUpCollected;
 
         #endregion
 
@@ -396,6 +409,7 @@ namespace PowerPulse.Core
             ColorId unlocked = m_ScoreManager.UnlockNextColor();
 
             OpenPortalCooldown();
+            OnPortalCrossed?.Invoke(newColor, portal.transform.position);
 
             Debug.Log($"[SpawnManager] Player crossed. New active color: {newColor} | Unlocked: {unlocked}");
         }
@@ -490,6 +504,7 @@ namespace PowerPulse.Core
             }
 
             ApplyPowerUpEffect(entry);
+            OnPowerUpCollected?.Invoke(entry, powerUp.transform.position);
 
             GameObject prefab = powerUp.SourcePrefab != null ? powerUp.SourcePrefab : powerUp.gameObject;
             m_Pool.Release(prefab, powerUp.gameObject);

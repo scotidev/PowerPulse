@@ -6,7 +6,7 @@ namespace PowerPulse.Player
 {
     /// <summary>
     /// Owns the visible death of the player: it kills the rigidbody, stops the
-    /// input reading and blinks the sphere for a short death animation before
+    /// input reading and hides the sphere while the death VFX plays, before
     /// notifying the ScoreManager. It lives on the player, so the death is
     /// self-contained and does not depend on any screen existing.
     /// </summary>
@@ -17,9 +17,6 @@ namespace PowerPulse.Player
 
         /// <summary>How long the death animation runs before the run is closed.</summary>
         private const float c_DeathAnimationDuration = 0.8f;
-
-        /// <summary>Seconds between each blink of the sphere.</summary>
-        private const float c_BlinkInterval = 0.1f;
 
         /// <summary>Scale of the sphere at rest.</summary>
         private const float c_RestScale = 0.8f;
@@ -42,9 +39,6 @@ namespace PowerPulse.Player
         [SerializeField, Tooltip("Total duration of the death animation in seconds.")]
         private float m_DeathDuration = c_DeathAnimationDuration;
 
-        [SerializeField, Tooltip("Seconds between each blink of the sphere.")]
-        private float m_BlinkInterval = c_BlinkInterval;
-
         #endregion
 
 
@@ -56,7 +50,6 @@ namespace PowerPulse.Player
         private float m_Elapsed;
         private bool m_IsDying;
         private bool m_HasFinished;
-        private int m_BlinkCount;
 
         #endregion
 
@@ -93,7 +86,15 @@ namespace PowerPulse.Player
 
             m_IsDying = true;
             m_Elapsed = 0f;
-            m_BlinkCount = 0;
+
+            // The death VFX (spawned by the CameraFX through OnPlayerDied) replaces
+            // the sphere, so it is hidden immediately instead of blinking.
+            Renderer[] renderers = GetComponentsInChildren<Renderer>();
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].enabled = false;
+            }
 
             // The player stops reacting to the world: no input, no collision,
             // no gravity and no movement.
@@ -132,7 +133,6 @@ namespace PowerPulse.Player
             m_IsDying = false;
             m_HasFinished = false;
             m_Elapsed = 0f;
-            m_BlinkCount = 0;
 
             if (m_Controller != null)
             {
@@ -181,7 +181,7 @@ namespace PowerPulse.Player
         #region PRIVATE METHODS
 
         /// <summary>
-        /// Runs the blink animation and closes the run when it finishes.
+        /// Runs the death timer and closes the run when it finishes.
         /// </summary>
         private void TickDeathAnimation()
         {
@@ -191,14 +191,6 @@ namespace PowerPulse.Player
             }
 
             m_Elapsed += Time.deltaTime;
-
-            float blinkTimer = m_Elapsed - (m_BlinkCount * m_BlinkInterval);
-
-            if (blinkTimer >= m_BlinkInterval)
-            {
-                m_BlinkCount++;
-                ToggleSphereVisibility();
-            }
 
             if (m_Elapsed < m_DeathDuration)
             {
@@ -214,19 +206,6 @@ namespace PowerPulse.Player
             }
 
             Debug.Log("[PlayerDeath] Death animation finished. Run closed.");
-        }
-
-        /// <summary>
-        /// Toggles the sphere visibility to create the blink effect.
-        /// </summary>
-        private void ToggleSphereVisibility()
-        {
-            Renderer[] renderers = GetComponentsInChildren<Renderer>();
-
-            for (int i = 0; i < renderers.Length; i++)
-            {
-                renderers[i].enabled = !renderers[i].enabled;
-            }
         }
 
         #endregion

@@ -16,14 +16,6 @@ namespace PowerPulse.Player
     /// </summary>
     public class PlayerColor : MonoBehaviour
     {
-        #region STATIC
-
-        /// <summary>Seconds between color swaps while a boost is active.</summary>
-        private const float c_BoostBlinkInterval = 0.25f;
-
-        #endregion
-
-
         #region SERIALIZED FIELDS
 
         [Header("References")]
@@ -41,6 +33,14 @@ namespace PowerPulse.Player
 
         [SerializeField, Tooltip("Visual ring shown around the sphere while the shield is active.")]
         private GameObject m_ShieldVisual;
+
+        [Header("Boost Blink")]
+
+        [SerializeField, Tooltip("Seconds between color swaps at the start of the boost.")]
+        private float m_BoostBlinkSlowInterval = 0.25f;
+
+        [SerializeField, Tooltip("Seconds between color swaps at the end of the boost (faster blink as it expires).")]
+        private float m_BoostBlinkFastInterval = 0.08f;
 
         [Header("State")]
 
@@ -296,9 +296,11 @@ namespace PowerPulse.Player
                 return;
             }
 
+            float interval = GetBlinkInterval();
+
             m_BoostBlinkTimer += Time.deltaTime;
 
-            if (m_BoostBlinkTimer < c_BoostBlinkInterval)
+            if (m_BoostBlinkTimer < interval)
             {
                 return;
             }
@@ -309,6 +311,23 @@ namespace PowerPulse.Player
             ColorId color = m_BoostColors[m_BoostBlinkIndex];
             ApplyColor(color);
             OnColorChanged?.Invoke(color);
+        }
+
+        /// <summary>
+        /// Returns the blink interval for the current boost progress: it starts
+        /// slow and gets faster as the boost runs out.
+        /// </summary>
+        /// <returns>Seconds between color swaps.</returns>
+        private float GetBlinkInterval()
+        {
+            if (m_ScoreManager == null || m_ScoreManager.BoostDuration <= 0f)
+            {
+                return m_BoostBlinkSlowInterval;
+            }
+
+            float progress = Mathf.Clamp01(m_ScoreManager.BoostTimeLeft / m_ScoreManager.BoostDuration);
+
+            return Mathf.Lerp(m_BoostBlinkFastInterval, m_BoostBlinkSlowInterval, progress);
         }
 
         /// <summary>Mirrors the active color published by the ScoreManager.</summary>

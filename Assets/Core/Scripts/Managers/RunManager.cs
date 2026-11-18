@@ -245,7 +245,6 @@ namespace PowerPulse.Core
             switch (state)
             {
                 case GameState.Playing:
-                case GameState.Tutorial:
                     IsRunning = true;
                     break;
 

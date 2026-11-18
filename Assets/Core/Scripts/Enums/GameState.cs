@@ -7,7 +7,6 @@ namespace PowerPulse.Core
     public enum GameState
     {
         MainMenu,
-        Tutorial,
         Playing,
         Paused,
         GameOver

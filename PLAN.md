@@ -34,7 +34,7 @@ Decisões confirmadas:
 
 - `ScoreManager` é a autoridade única da run (score, recorde, cor ativa, cores desbloqueadas, escudo e boost). O `ColorManager` previsto no GDD foi incorporado a ele, com um nome mais semântico.
 - `PlayerCollision` pergunta a regra ao `PlayerColor` (mesmo GameObject), que delega ao `ScoreManager`. Nenhuma referência direta ao manager na colisão.
-- `PlayerDeath` existe para a morte ser legível antes da tela de Game Over (Fase 12).
+- `PlayerDeath` existe para a morte ser legível antes da tela de Game Over (Fase 11).
 
 **Decisões tomadas durante as Fases 7 e 8:**
 
@@ -68,7 +68,7 @@ PowerPulse é um endless runner vertical neon. O jogador controla uma esfera de 
 - A esfera pode trocar de cor ao atravessar portais.
 - Power-ups permitem coletar múltiplas cores ou absorver uma colisão.
 - A dificuldade aumenta conforme a distância percorrida.
-- O jogo não possui narrativa; o foco é leitura imediata, reflexo, fluidez e sessões curtas.
+- O jogo não possui narrativa; o foco é leitura imediata, reflexo, fluidez e sessões curtas. A primeira run já é a experiência completa — não há tutorial.
 
 ## Fase 0 — Preparação e critérios do projeto
 
@@ -122,7 +122,6 @@ PowerPulse é um endless runner vertical neon. O jogador controla uma esfera de 
    - `AudioManager`.
 4. Definir os estados globais:
    - `MainMenu`.
-   - `Tutorial`.
    - `Playing`.
    - `Paused`.
    - `GameOver`.
@@ -295,7 +294,7 @@ Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pist
 - A regra de coleta segue o GDD: `CanCollect` é verdadeiro apenas para a **cor ativa** ou para uma **cor coberta por boost**. Cor desbloqueada mas inativa continua sendo mortal.
 - O `PlayerCollision` não referencia o `ScoreManager`: ele pergunta ao `PlayerColor` no mesmo GameObject, que delega a regra. Isso reduz o acoplamento e mantém a colisão falando apenas com o estado do jogador.
 - O `PlayerDeath` toca a animação de morte (piscar + esconder) antes de fechar a run. Sem isso, o game over parecia um travamento, porque a pista parava mas o jogador continuava visível e responsivo. (Na Fase 10 o piscar foi substituído pelo VFX de morte; o `PlayerDeath` agora só esconde a esfera e mantém o timer.)
-- A tela de Game Over (botão de recomeçar) é da Fase 12. Até lá, o teste exige parar o Play e iniciar de novo.
+- A tela de Game Over (botão de recomeçar) é da Fase 11. Até lá, o teste exige parar o Play e iniciar de novo.
 
 **Validação:** testar todas as combinações de cores, tamanhos, shield e boost. ✅ (cores e tamanhos testados; shield/boost aguardam os power-ups da Fase 9)
 
@@ -321,7 +320,7 @@ Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pist
    - Sempre existir uma solução jogável. ✅ (`PickFreeLanes` deixa 1 lane livre)
    - Não bloquear todas as lanes sem alternativa. ✅
    - Não colocar power-up em posição impossível. ⏳ (Fase 9)
-   - Não exigir reação além do tempo definido. ⏳ (Fase 16 — balanceamento)
+   - Não exigir reação além do tempo definido. ⏳ (Fase 15 — balanceamento)
 
 **Notas de implementação (Fase 7):**
 
@@ -331,7 +330,7 @@ Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pist
 - Obstáculos podem ser evitados por **troca de lane ou pulo**. Não existe obstáculo "só de pulo", mantendo coerência com as ferramentas do jogador.
 - Regra de segurança implementada: `PickFreeLanes` distribui os obstáculos em lanes sorteadas e **sempre deixa uma lane livre**, impossibilitando fileiras sem solução.
 
-**Validação:** executar runs manuais em diferentes distâncias, registrando onde o jogo se torna injusto ou trivial. ⏳ (Fase 16 sistematiza; testes manuais já feitos)
+**Validação:** executar runs manuais em diferentes distâncias, registrando onde o jogo se torna injusto ou trivial. ⏳ (Fase 15 sistematiza; testes manuais já feitos)
 
 ## Fase 8 — Portais de cor
 
@@ -344,13 +343,13 @@ Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pist
 4. Ao atravessar:
    - Trocar a cor ativa. ✅
    - Liberar progressivamente uma nova cor. ✅
-   - Emitir feedback visual e sonoro. ⏳ (SFX é Fase 13; o visual é o portal)
+   - Emitir feedback visual e sonoro. ⏳ (SFX é Fase 12; o visual é o portal)
 5. Garantir que:
    - O portal seja atravessável. ✅ (collider como trigger, sem bloqueio físico)
    - A cor só mude se o jogador realmente passar por ele. ✅ (`OnTriggerEnter` no Player)
    - O portal não apareça sobre outro objeto. ✅ (espaçamento mínimo via `PortalObstacleGap`)
    - A troca não ocorra por aproximação lateral. ✅ (o portal atravessa a pista inteira)
-6. Criar variações visuais de portal conforme a progressão. ⏳ (Fase 15 — integração visual final)
+6. Criar variações visuais de portal conforme a progressão. ⏳ (Fase 14 — integração visual final)
 
 **Notas de implementação (Fase 8):**
 
@@ -396,7 +395,7 @@ Implementar os itens com pool próprio:
 **Notas de implementação (Fase 9):**
 
 - O `PowerUp` não referencia o `ScoreManager`: ele notifica o `SpawnManager`, que é o objeto da cena que conhece o manager e o catálogo.
-- O `SO_PowerUpCatalog.PowerUpEntry` já trazia `Sfx` e `VfxPrefab`; a Fase 10 preencheu o `VfxPrefab` e o `Sfx` fica para a Fase 13.
+- O `SO_PowerUpCatalog.PowerUpEntry` já trazia `Sfx` e `VfxPrefab`; a Fase 10 preencheu o `VfxPrefab` e o `Sfx` fica para a Fase 12.
 - O piscar do boost acelera conforme o tempo restante (`PlayerColor`), usando `BoostDuration` exposto pelo `ScoreManager`.
 - O shield é independente dos boosts; um novo boost substitui o boost atual, sem deixar estados contraditórios.
 
@@ -426,28 +425,12 @@ Implementar os itens com pool próprio:
 - O `CameraFX` roda em `LateUpdate` com `[DefaultExecutionOrder]` para aplicar o shake depois do `CameraFollow`; o `CameraFollow` passou a expor `FollowPosition` e interpola a partir dela, sem ser contaminado pelo shake.
 - O `OnCollected` passou a carregar `ColorId` para tingir o VFX de coleta; não havia outros assinantes.
 - O `PlayerDeath` deixou de piscar: ele esconde a esfera e o VFX de morte (disparado por `OnPlayerDied`) assume o feedback.
-- O `PowerUpCatalog` foi preenchido com `VFX_PowerUp`; o campo `Sfx` segue para a Fase 13.
+- O `PowerUpCatalog` foi preenchido com `VFX_PowerUp`; o campo `Sfx` segue para a Fase 12.
 - O flash usa um Canvas overlay; se a cena não tiver um, o `CameraFX` cria um em runtime.
 - O `VFXClip` para e limpa o `ParticleSystem` antes de configurar a `duration` (o Unity recusa alterar a duração com o sistema tocando).
 - A cor de cada VFX é multiplicada por `ColorEmission`, para ultrapassar o limiar do Bloom e brilhar.
 
-## Fase 11 — Tutorial
-
-1. Criar o sistema de primeira execução.
-2. Salvar a flag no `SaveManager`.
-3. Iniciar a primeira run com `Time.timeScale` configurado no objeto de cena.
-4. Exibir overlay com:
-   - Dash para esquerda.
-   - Dash para direita.
-   - Swipe para cima.
-5. Criar uma sequência inicial controlada de obstáculos.
-6. Encerrar o tutorial após os primeiros inputs relevantes.
-7. Restaurar o tempo normal.
-8. Não exibir o tutorial novamente após concluído.
-
-**Validação:** limpar o save, executar o tutorial e confirmar que ele não reaparece em uma nova run.
-
-## Fase 12 — HUD, menus e fluxo de jogo
+## Fase 11 — HUD, menus e fluxo de jogo
 
 1. Criar o HUD:
    - Score.
@@ -483,9 +466,9 @@ Implementar os itens com pool próprio:
    - Botão de skip.
 7. Implementar transições via `SceneLoader`.
 
-**Validação:** executar o fluxo completo: menu → tutorial → run → pausa → game over → reinício → menu.
+**Validação:** executar o fluxo completo: menu → run → pausa → game over → reinício → menu.
 
-## Fase 13 — Áudio
+## Fase 12 — Áudio
 
 1. Criar o `AudioManager` persistente.
 2. Configurar:
@@ -507,14 +490,13 @@ Implementar os itens com pool próprio:
 
 **Validação:** testar sobreposição de efeitos sem cortes, distorção ou criação excessiva de `AudioSource`.
 
-## Fase 14 — Salvamento local
+## Fase 13 — Salvamento local
 
 1. Criar `ScoreData`.
 2. Criar `SettingsData`.
 3. Salvar em `PlayerPrefs` como JSON.
 4. Persistir:
    - Recorde.
-   - Tutorial concluído.
    - Volumes.
    - Estado de som.
 5. Gravar ao final de cada run.
@@ -524,7 +506,7 @@ Implementar os itens com pool próprio:
 
 **Validação:** fechar e reabrir o jogo, confirmando a persistência do recorde e das configurações.
 
-## Fase 15 — Integração visual final
+## Fase 14 — Integração visual final
 
 Depois que todo o jogo estiver funcional:
 
@@ -543,7 +525,7 @@ Depois que todo o jogo estiver funcional:
    - Morte.
 8. Garantir que o visual não prejudique a leitura dos obstáculos.
 
-## Fase 16 — Balanceamento manual
+## Fase 15 — Balanceamento manual
 
 Criar uma matriz de testes com runs em diferentes faixas:
 
@@ -567,7 +549,7 @@ Avaliar manualmente:
 - Facilidade de reinício.
 - Desempenho em WebGL mobile.
 
-## Fase 17 — Otimização
+## Fase 16 — Otimização
 
 1. Validar 60 FPS em desktop.
 2. Testar em navegadores diferentes.
@@ -586,7 +568,7 @@ Avaliar manualmente:
 7. Verificar carregamento inicial e tamanho da build.
 8. Testar interação por toque em dispositivos móveis ou emuladores compatíveis.
 
-## Fase 18 — Empacotamento e entrega
+## Fase 17 — Empacotamento e entrega
 
 1. Configurar as cenas na ordem correta de build.
 2. Configurar nome, ícone e metadados.
@@ -597,7 +579,6 @@ Avaliar manualmente:
    - Input.
    - Áudio.
    - Save.
-   - Tutorial.
    - Game Over.
    - Reinício.
 6. Registrar problemas conhecidos.
@@ -625,7 +606,7 @@ Portais e power-ups
         ↓
 Câmera, VFX e áudio
         ↓
-Tutorial e UI
+UI, menus e fluxo de jogo
         ↓
 Save local
         ↓
@@ -646,7 +627,7 @@ A versão será considerada pronta para uma primeira entrega quando:
 - O dash e o pulo funcionarem nas cinco lanes.
 - Obstáculos, score, cores, portais e power-ups estiverem integrados.
 - A progressão de dificuldade ocorrer por distância.
-- Tutorial, pausa, game over e reinício funcionarem.
+- Pausa, game over e reinício funcionarem.
 - Recorde e configurações forem persistidos localmente.
 - HUD, áudio, efeitos e menus estiverem integrados.
 - A build WebGL funcionar fora do Editor.

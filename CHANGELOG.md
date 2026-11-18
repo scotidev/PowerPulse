@@ -7,6 +7,15 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
+## Remoção do tutorial (docs + estado de jogo)
+
+### Removed
+
+- O tutorial previsto no GDD foi removido por decisão do jogador: o jogo não terá tutorial e a primeira run já é a experiência completa.
+- O estado `GameState.Tutorial` (`Assets/Core/Scripts/Enums/GameState.cs`) e o `case` correspondente em `RunManager.HandleStateChanged`. O `GameManager` transiciona direto entre `MainMenu` e `Playing`.
+- A seção "Tutorial System" do plano e toda referência a tutorial nos docs (`PLAN.md`, `GDD_NOTES.md`). Nenhum asset de tutorial existia no `Assets/` — não houve exclusão de cena, overlay ou flag de save.
+- As fases do plano foram renumeradas (12 → 11, 13 → 12, 14 → 13, 15 → 14, 16 → 15, 17 → 16, 18 → 17), sem gap.
+
 ## Fase 10 — Câmera, efeitos e juice
 
 ### Added

@@ -27,13 +27,24 @@ Entradas organizadas por fase, mais recentes primeiro.
 
 ### Flash de tela
 
-**O que foi feito:** o flash é um `Image` full-screen em um Canvas overlay. Se a cena não tiver um Canvas, o `CameraFX` cria um em runtime; o Canvas fica pronto para o HUD da Fase 12.
+**O que foi feito:** o flash é um `Image` full-screen em um Canvas overlay. Se a cena não tiver um Canvas, o `CameraFX` cria um em runtime; o Canvas fica pronto para o HUD da Fase 11.
 
 ### `PlayerDeath` sem blink
 
 **O GDD diz:** "ao morrer, roda uma animação de morte e a tela de Game Over...".
 
 **O que foi feito:** o placeholder de piscar da Fase 6 foi substituído. O `PlayerDeath` esconde a esfera e o VFX de morte (partículas + shake + flash + CA) assume o feedback; o timer de 0,8 s e o `CloseRun()` foram mantidos.
+
+---
+
+## Fase 10 — Decisão de design: sem tutorial
+
+O GDD previa um tutorial de primeira execução (`Tutorial System` + estado `Tutorial` no `GameState`, com `Time.timeScale = 0.2` e overlay de gestos). **Removido por decisão do jogador:** o jogo não terá tutorial. A primeira run já é a experiência completa — a leitura de cores e os controles se ensinam sozinhos pelo ritmo da pista.
+
+**Consequências:**
+- O estado `GameState.Tutorial` foi removido do enum (o `GameManager` volta a transicionar direto entre `MainMenu` e `Playing`).
+- Nenhum asset de tutorial existia (nenhuma cena, overlay ou flag de save), então nada foi deletado do `Assets/`.
+- A fase 11 do plano original deixou de existir; as fases seguintes foram renumeradas.
 
 ---
 
@@ -140,7 +151,7 @@ jogador já foi treinado a ler.
 ### `PlayerDeath` (não estava no GDD)
 
 O GDD descreve a morte como "animação de morte e a tela de Game Over". A tela
-é da Fase 12, mas a animação é da Fase 6. Sem ela, o game over parecia um
+é da Fase 11, mas a animação é da Fase 6. Sem ela, o game over parecia um
 travamento: a pista parava, mas o jogador continuava visível e responsivo.
 
 **O que foi feito:** `PlayerDeath` tocava um piscar + esconder por ~0,8 s, desligava

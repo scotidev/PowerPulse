@@ -28,7 +28,7 @@ Decisões confirmadas:
 | 7 — Progressão e dificuldade           | concluída ✅ |
 | 8 — Portais de cor                     | concluída ✅ |
 | 9 — Power-ups                          | concluída ✅ |
-| 10 — Câmera, efeitos e juice           | em andamento 🛠 |
+| 10 — Câmera, efeitos e juice           | concluída ✅ |
 
 **Decisões tomadas durante a Fase 6:**
 
@@ -284,9 +284,9 @@ Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pist
    - `OnPlayerDied`. ✅
    - `OnScoreChanged`. ✅
 8. Criar feedback de coleta:
-   - Explosão de partículas. ⏳ (Fase 10)
-   - Flash. ⏳ (Fase 10)
-   - Shake. ⏳ (Fase 10)
+   - Explosão de partículas. ✅
+   - Flash. ✅
+   - Shake. ✅
    - Atualização de score. ✅
 
 **Notas de implementação (Fase 6):**
@@ -294,7 +294,7 @@ Usar o modelo decidido: o jogador permanece praticamente fixo no eixo Z e a pist
 - O `ScoreManager` é a autoridade única da run: score, recorde, cor ativa, cores desbloqueadas, escudo e boost. Ele substitui o `ColorManager` previsto no GDD com um nome mais semântico, sem criar dois managers.
 - A regra de coleta segue o GDD: `CanCollect` é verdadeiro apenas para a **cor ativa** ou para uma **cor coberta por boost**. Cor desbloqueada mas inativa continua sendo mortal.
 - O `PlayerCollision` não referencia o `ScoreManager`: ele pergunta ao `PlayerColor` no mesmo GameObject, que delega a regra. Isso reduz o acoplamento e mantém a colisão falando apenas com o estado do jogador.
-- O `PlayerDeath` toca a animação de morte (piscar + esconder) antes de fechar a run. Sem isso, o game over parecia um travamento, porque a pista parava mas o jogador continuava visível e responsivo.
+- O `PlayerDeath` toca a animação de morte (piscar + esconder) antes de fechar a run. Sem isso, o game over parecia um travamento, porque a pista parava mas o jogador continuava visível e responsivo. (Na Fase 10 o piscar foi substituído pelo VFX de morte; o `PlayerDeath` agora só esconde a esfera e mantém o timer.)
 - A tela de Game Over (botão de recomeçar) é da Fase 12. Até lá, o teste exige parar o Play e iniciar de novo.
 
 **Validação:** testar todas as combinações de cores, tamanhos, shield e boost. ✅ (cores e tamanhos testados; shield/boost aguardam os power-ups da Fase 9)
@@ -419,7 +419,7 @@ Implementar os itens com pool próprio:
 4. Poolar partículas importantes para evitar `Instantiate` e `Destroy` frequentes.
 5. Ajustar a intensidade para preservar a legibilidade das cores.
 
-**Validação:** conferir se os efeitos dão impacto sem esconder obstáculos ou causar desconforto visual.
+**Validação:** conferir se os efeitos dão impacto sem esconder obstáculos ou causar desconforto visual. ✅
 
 **Notas de implementação (Fase 10):**
 
@@ -428,6 +428,8 @@ Implementar os itens com pool próprio:
 - O `PlayerDeath` deixou de piscar: ele esconde a esfera e o VFX de morte (disparado por `OnPlayerDied`) assume o feedback.
 - O `PowerUpCatalog` foi preenchido com `VFX_PowerUp`; o campo `Sfx` segue para a Fase 13.
 - O flash usa um Canvas overlay; se a cena não tiver um, o `CameraFX` cria um em runtime.
+- O `VFXClip` para e limpa o `ParticleSystem` antes de configurar a `duration` (o Unity recusa alterar a duração com o sistema tocando).
+- A cor de cada VFX é multiplicada por `ColorEmission`, para ultrapassar o limiar do Bloom e brilhar.
 
 ## Fase 11 — Tutorial
 

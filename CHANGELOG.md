@@ -26,6 +26,10 @@ Entries are grouped by implementation phase, newest first.
 - O `ScoreManager` expõe `Palette` para os sistemas de VFX.
 - O flash usa um Canvas overlay (criado em runtime quando a cena não tem um), deixando o caminho pronto para o HUD da Fase 12.
 
+### Fixed
+
+- **Aviso de `ParticleSystem` no prewarm.** O `VFXClip` agora para e limpa o sistema antes de definir a `duration`; o Unity recusava alterar a duração enquanto o `ParticleSystem` tocava no `Awake`.
+
 ## Fase 9 — Power-ups
 
 ### Added

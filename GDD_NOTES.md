@@ -9,6 +9,34 @@ Entradas organizadas por fase, mais recentes primeiro.
 
 ---
 
+## Fase 10 — Câmera, efeitos e juice
+
+### `CameraFX` (como previsto, sem Cinemachine)
+
+**O GDD diz:** "Câmera fixa... Os efeitos são aplicados por um script `CameraFX` em conjunto com o Volume de Pós-processamento do URP: shake de posição ao coletar e ao morrer, punch de FOV no boost, flash de tela e ajustes de Bloom/Chromatic Aberration. Não há uso de Cinemachine."
+
+**O que foi feito:** `CameraFX` na Main Camera, rodando depois do `CameraFollow`. Shake por Perlin noise, punch de FOV, flash por Canvas overlay e Bloom/Chromatic Aberration com save/restore do `Global Volume Profile`. Sem Cinemachine.
+
+### `CameraFollow` e o shake
+
+**O que foi feito:** o `CameraFollow` expõe `FollowPosition` e interpola a partir dela; o `CameraFX` aplica o shake como offset aditivo depois do follow. Assim o shake não é "puxado" de volta pelo suavizamento.
+
+### VFX data-driven
+
+**O que foi feito:** `VFXClip` é um data holder com `ParticleSystem` criado em runtime (material aditivo URP) e pooling pelo `ObjectPool`. Os prefabs (`VFX_Collect`, `VFX_Death`, `VFX_Dash`, `VFX_Portal`, `VFX_PowerUp`) e as intensidades ficam em `Config_VFX` (`VFXSettings`). A cor é multiplicada por `ColorEmission` para passar do limiar do Bloom.
+
+### Flash de tela
+
+**O que foi feito:** o flash é um `Image` full-screen em um Canvas overlay. Se a cena não tiver um Canvas, o `CameraFX` cria um em runtime; o Canvas fica pronto para o HUD da Fase 12.
+
+### `PlayerDeath` sem blink
+
+**O GDD diz:** "ao morrer, roda uma animação de morte e a tela de Game Over...".
+
+**O que foi feito:** o placeholder de piscar da Fase 6 foi substituído. O `PlayerDeath` esconde a esfera e o VFX de morte (partículas + shake + flash + CA) assume o feedback; o timer de 0,8 s e o `CloseRun()` foram mantidos.
+
+---
+
 ## Fase 8 — Portais de cor
 
 ### Decisão de design: o portal atravessa as 5 lanes
@@ -115,10 +143,10 @@ O GDD descreve a morte como "animação de morte e a tela de Game Over". A tela
 é da Fase 12, mas a animação é da Fase 6. Sem ela, o game over parecia um
 travamento: a pista parava, mas o jogador continuava visível e responsivo.
 
-**O que foi feito:** `PlayerDeath` toca um piscar + esconder por ~0,8 s, desliga
-o `Rigidbody` e o input, e só então muda o estado global para `GameOver`. A
-Fase 10 substituirá esse placeholder pelo VFX completo (partículas, shake,
-flash).
+**O que foi feito:** `PlayerDeath` tocava um piscar + esconder por ~0,8 s, desligava
+o `Rigidbody` e o input, e só então mudava o estado global para `GameOver`. A
+Fase 10 substituiu esse placeholder pelo VFX completo (partículas, shake,
+flash): o `PlayerDeath` agora só esconde a esfera e mantém o timer.
 
 ### Escudo e boost: estado pronto, itens não
 

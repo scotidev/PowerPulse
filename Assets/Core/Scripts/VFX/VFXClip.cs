@@ -144,6 +144,10 @@ namespace PowerPulse.VFX
         /// </summary>
         private void Configure()
         {
+            // A new ParticleSystem starts playing on Awake. Stop it before
+            // changing the duration: Unity rejects that while it is playing.
+            m_Particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
             ParticleSystem.MainModule main = m_Particles.main;
             main.duration = Mathf.Max(m_Duration, m_StartLifetime, 0.05f);
             main.loop = false;

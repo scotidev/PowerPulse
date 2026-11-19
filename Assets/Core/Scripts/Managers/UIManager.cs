@@ -504,6 +504,13 @@ namespace PowerPulse.Core
                 return;
             }
 
+            if (m_OverlayPanel != UIPanel.HUD)
+            {
+                // An overlay (Options/Controls/Credits) owns the keyboard while
+                // it is open: the fallback must not start the game underneath it.
+                return;
+            }
+
             if (m_GameManager == null)
             {
                 return;
@@ -534,6 +541,11 @@ namespace PowerPulse.Core
             if (selected != null)
             {
                 ExecuteEvents.Execute(selected, null, ExecuteEvents.cancelHandler);
+                return;
+            }
+
+            if (m_OverlayPanel != UIPanel.HUD)
+            {
                 return;
             }
 

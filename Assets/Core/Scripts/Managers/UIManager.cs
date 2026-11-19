@@ -156,6 +156,15 @@ namespace PowerPulse.Core
         private InputAction m_ConfirmAction;
         private InputAction m_CancelAction;
 
+        /// <summary>Panel of the current game state (the base screen).</summary>
+        private UIPanel m_StatePanel = UIPanel.MainMenu;
+
+        /// <summary>
+        /// Overlay currently shown on top of the base screen. Never a base
+        /// panel: <see cref="UIPanel.HUD"/> means "no overlay".
+        /// </summary>
+        private UIPanel m_OverlayPanel = UIPanel.HUD;
+
         #endregion
 
 
@@ -205,13 +214,11 @@ namespace PowerPulse.Core
         /// <inheritdoc />
         public void ShowPanel(UIPanel panel)
         {
-            if (m_HUDPanel != null) m_HUDPanel.SetActive(panel == UIPanel.HUD);
-            if (m_MainMenuPanel != null) m_MainMenuPanel.SetActive(panel == UIPanel.MainMenu);
-            if (m_PausePanel != null) m_PausePanel.SetActive(panel == UIPanel.Pause);
-            if (m_GameOverPanel != null) m_GameOverPanel.SetActive(panel == UIPanel.GameOver);
-            if (m_OptionsPanel != null) m_OptionsPanel.SetActive(panel == UIPanel.Options);
-            if (m_ControlsPanel != null) m_ControlsPanel.SetActive(panel == UIPanel.Controls);
-            if (m_CreditsPanel != null) m_CreditsPanel.SetActive(panel == UIPanel.Credits);
+            // A state change always closes any overlay: the overlay belongs to
+            // the panel that opened it, and the state moved on.
+            m_OverlayPanel = UIPanel.HUD;
+            m_StatePanel = panel;
+            ApplyPanelVisibility();
 
             // Clear the previous selection so the new panel does not inherit a
             // stale selected GameObject from the panel that was just hidden.
@@ -219,6 +226,23 @@ namespace PowerPulse.Core
             {
                 EventSystem.current.SetSelectedGameObject(null);
             }
+        }
+
+        /// <summary>
+        /// Applies which panels are visible: the one for the current game state,
+        /// plus the overlay when there is one. Overlays are children of the same
+        /// Canvas, so both can be visible at the same time.
+        /// </summary>
+        private void ApplyPanelVisibility()
+        {
+            if (m_HUDPanel != null) m_HUDPanel.SetActive(m_StatePanel == UIPanel.HUD);
+            if (m_MainMenuPanel != null) m_MainMenuPanel.SetActive(m_StatePanel == UIPanel.MainMenu);
+            if (m_PausePanel != null) m_PausePanel.SetActive(m_StatePanel == UIPanel.Pause);
+            if (m_GameOverPanel != null) m_GameOverPanel.SetActive(m_StatePanel == UIPanel.GameOver);
+
+            if (m_OptionsPanel != null) m_OptionsPanel.SetActive(m_OverlayPanel == UIPanel.Options);
+            if (m_ControlsPanel != null) m_ControlsPanel.SetActive(m_OverlayPanel == UIPanel.Controls);
+            if (m_CreditsPanel != null) m_CreditsPanel.SetActive(m_OverlayPanel == UIPanel.Credits);
         }
 
         /// <inheritdoc />
@@ -328,7 +352,7 @@ namespace PowerPulse.Core
             if (m_PauseButton != null) m_PauseButton.onClick.AddListener(() => GameFlow()?.Pause());
             if (m_PlayButton != null) m_PlayButton.onClick.AddListener(StartGame);
             if (m_OptionsButton != null) m_OptionsButton.onClick.AddListener(ShowOptions);
-            if (m_CreditsButton != null) m_CreditsButton.onClick.AddListener(() => ShowPanel(UIPanel.Credits));
+            if (m_CreditsButton != null) m_CreditsButton.onClick.AddListener(() => ShowOverlay(UIPanel.Credits));
             if (m_QuitButton != null) m_QuitButton.onClick.AddListener(QuitGame);
 
             if (m_ResumeButton != null) m_ResumeButton.onClick.AddListener(() => GameFlow()?.Resume());
@@ -338,7 +362,7 @@ namespace PowerPulse.Core
             if (m_RetryButton != null) m_RetryButton.onClick.AddListener(() => GameFlow()?.Restart());
             if (m_GameOverMenuButton != null) m_GameOverMenuButton.onClick.AddListener(() => GameFlow()?.GoToMenu());
 
-            if (m_ControlsButton != null) m_ControlsButton.onClick.AddListener(() => ShowPanel(UIPanel.Controls));
+            if (m_ControlsButton != null) m_ControlsButton.onClick.AddListener(() => ShowOverlay(UIPanel.Controls));
             if (m_OptionsBackButton != null) m_OptionsBackButton.onClick.AddListener(ApplyAndCloseOptions);
             if (m_ControlsBackButton != null) m_ControlsBackButton.onClick.AddListener(ShowOptions);
 
@@ -531,13 +555,33 @@ namespace PowerPulse.Core
                 ApplySettings(m_SaveService.GetSettings());
             }
 
-            ShowPanel(UIPanel.Options);
+            ShowOverlay(UIPanel.Options);
         }
 
         private void ApplyAndCloseOptions()
         {
             ApplyOptionsToAudio();
-            ShowPanel(UIPanel.Pause);
+            CloseOverlay();
+        }
+
+        /// <summary>
+        /// Shows an overlay (Options, Controls, Credits) on top of the panel the
+        /// game is already in, so returning from it restores the previous screen.
+        /// </summary>
+        /// <param name="overlay">Overlay to show.</param>
+        private void ShowOverlay(UIPanel overlay)
+        {
+            m_OverlayPanel = overlay;
+            ApplyPanelVisibility();
+        }
+
+        /// <summary>
+        /// Hides the current overlay and returns to the panel of the game state.
+        /// </summary>
+        private void CloseOverlay()
+        {
+            m_OverlayPanel = UIPanel.HUD;
+            ApplyPanelVisibility();
         }
 
         private void ApplyOptionsToAudio()

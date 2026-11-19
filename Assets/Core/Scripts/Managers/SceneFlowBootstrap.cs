@@ -4,23 +4,32 @@ using UnityEngine.SceneManagement;
 namespace PowerPulse.Core
 {
     /// <summary>
-    /// Creates the scene-level GameFlow as soon as the Game scene is loaded, so
-    /// the scene file stays clean and the player does not need to add anything
-    /// in the Editor. Does nothing in any other scene.
+    /// Creates the scene-level GameFlow as soon as a scene is loaded, so the
+    /// scene files stay clean and the player does not need to add anything in
+    /// the Editor. Lives in both the Menu and the Game scene: the menu needs the
+    /// flow to start a run, and the Game scene needs it to pause/resume/restart.
     /// </summary>
     public static class SceneFlowBootstrap
     {
-        /// <summary>Name of the scene that owns a GameFlow.</summary>
+        /// <summary>Name of the menu scene, as set in Build Settings.</summary>
+        private const string c_MenuSceneName = "Menu";
+
+        /// <summary>Name of the game scene, as set in Build Settings.</summary>
         private const string c_GameSceneName = "Game";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         public static void Initialize()
         {
-            if (SceneManager.GetActiveScene().name != c_GameSceneName)
+            string sceneName = SceneManager.GetActiveScene().name;
+
+            if (sceneName != c_GameSceneName && sceneName != c_MenuSceneName)
             {
                 return;
             }
 
+            // Recreated on every load of a supported scene: the previous one was
+            // destroyed with its scene, so a return to the menu and a new run
+            // still get a working flow.
             if (Object.FindObjectOfType<GameFlow>() != null)
             {
                 return;
@@ -29,7 +38,7 @@ namespace PowerPulse.Core
             GameObject flowObject = new GameObject("GameFlow");
             flowObject.AddComponent<GameFlow>();
 
-            Debug.Log("[SceneFlowBootstrap] GameFlow created in the Game scene.");
+            Debug.Log($"[SceneFlowBootstrap] GameFlow created in the '{sceneName}' scene.");
         }
     }
 }

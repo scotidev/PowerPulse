@@ -26,7 +26,6 @@ namespace PowerPulse.Core
         private IGameManager m_GameManager;
         private ISceneLoader m_SceneLoader;
         private RunManager m_RunManager;
-        private float m_LastTimeScale = 1f;
 
         #endregion
 
@@ -81,7 +80,6 @@ namespace PowerPulse.Core
                 return;
             }
 
-            m_LastTimeScale = Time.timeScale;
             m_GameManager.SetState(GameState.Paused);
             m_GameManager.PauseTime();
         }

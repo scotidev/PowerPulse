@@ -1,0 +1,513 @@
+using System;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
+using TMPro;
+using PowerPulse.Core;
+
+namespace PowerPulse.Core
+{
+    /// <summary>
+    /// Single owner of every UI panel and of the in-run HUD. Lives on a
+    /// persistent prefab instantiated by the Bootstraper, so it survives scene
+    /// changes. Reacts to the global game state and to the run events, and is
+    /// the only place that knows which panel is visible.
+    /// </summary>
+    public class UIManager : MonoBehaviour, IUIManager
+    {
+        #region SERIALIZED FIELDS
+
+        [Header("Config")]
+        [SerializeField, Tooltip("Input actions asset that owns the UI action map.")]
+        private InputActionAsset m_InputActions;
+
+        [SerializeField, Tooltip("Color palette used to tint the HUD active color indicator.")]
+        private SO_ColorPalette m_Palette;
+
+        [Header("Panels")]
+        [SerializeField, Tooltip("In-run HUD panel.")]
+        private GameObject m_HUDPanel;
+
+        [SerializeField, Tooltip("Main menu panel.")]
+        private GameObject m_MainMenuPanel;
+
+        [SerializeField, Tooltip("Pause panel.")]
+        private GameObject m_PausePanel;
+
+        [SerializeField, Tooltip("Game over panel.")]
+        private GameObject m_GameOverPanel;
+
+        [SerializeField, Tooltip("Options panel (overlay).")]
+        private GameObject m_OptionsPanel;
+
+        [SerializeField, Tooltip("Controls panel (overlay).")]
+        private GameObject m_ControlsPanel;
+
+        [SerializeField, Tooltip("Credits panel (overlay).")]
+        private GameObject m_CreditsPanel;
+
+        [Header("HUD")]
+        [SerializeField, Tooltip("Score text.")]
+        private TextMeshProUGUI m_ScoreText;
+
+        [SerializeField, Tooltip("Distance text.")]
+        private TextMeshProUGUI m_DistanceText;
+
+        [SerializeField, Tooltip("Image that shows the active color.")]
+        private Image m_ActiveColorImage;
+
+        [SerializeField, Tooltip("Icon shown while the shield is active.")]
+        private GameObject m_ShieldIcon;
+
+        [SerializeField, Tooltip("Icon shown while a boost is active.")]
+        private GameObject m_BoostIcon;
+
+        [SerializeField, Tooltip("Fill that shows the remaining boost time.")]
+        private Image m_BoostFill;
+
+        [SerializeField, Tooltip("Pause button on the HUD.")]
+        private Button m_PauseButton;
+
+        [Header("Main Menu")]
+        [SerializeField, Tooltip("Play button.")]
+        private Button m_PlayButton;
+
+        [SerializeField, Tooltip("Options button.")]
+        private Button m_OptionsButton;
+
+        [SerializeField, Tooltip("Credits button.")]
+        private Button m_CreditsButton;
+
+        [SerializeField, Tooltip("Quit button.")]
+        private Button m_QuitButton;
+
+        [Header("Pause")]
+        [SerializeField, Tooltip("Resume button.")]
+        private Button m_ResumeButton;
+
+        [SerializeField, Tooltip("Options button on the pause panel.")]
+        private Button m_PauseOptionsButton;
+
+        [SerializeField, Tooltip("Back to menu button on the pause panel.")]
+        private Button m_PauseMenuButton;
+
+        [Header("Game Over")]
+        [SerializeField, Tooltip("Final score text.")]
+        private TextMeshProUGUI m_FinalScoreText;
+
+        [SerializeField, Tooltip("Best score text.")]
+        private TextMeshProUGUI m_BestScoreText;
+
+        [SerializeField, Tooltip("New record label, visible only when the record is beaten.")]
+        private GameObject m_NewRecordText;
+
+        [SerializeField, Tooltip("Retry button.")]
+        private Button m_RetryButton;
+
+        [SerializeField, Tooltip("Back to menu button on the game over panel.")]
+        private Button m_GameOverMenuButton;
+
+        [Header("Options")]
+        [SerializeField, Tooltip("Master volume slider (0-100).")]
+        private Slider m_MasterSlider;
+
+        [SerializeField, Tooltip("Music volume slider (0-100).")]
+        private Slider m_MusicSlider;
+
+        [SerializeField, Tooltip("SFX volume slider (0-100).")]
+        private Slider m_SfxSlider;
+
+        [SerializeField, Tooltip("Mute toggle.")]
+        private Toggle m_MuteToggle;
+
+        [SerializeField, Tooltip("Controls button on the options panel.")]
+        private Button m_ControlsButton;
+
+        [SerializeField, Tooltip("Back button on the options panel.")]
+        private Button m_OptionsBackButton;
+
+        [Header("Controls")]
+        [SerializeField, Tooltip("Back button on the controls panel.")]
+        private Button m_ControlsBackButton;
+
+        [Header("Credits")]
+        [SerializeField, Tooltip("Credits text.")]
+        private TextMeshProUGUI m_CreditsText;
+
+        [SerializeField, Tooltip("Skip button on the credits panel.")]
+        private Button m_CreditsSkipButton;
+
+        [Header("Scene / Flow")]
+        [SerializeField, Tooltip("Game scene name, used by GameFlow.")]
+        private string m_GameSceneName = "Game";
+
+        [SerializeField, Tooltip("Menu scene name, used by GameFlow.")]
+        private string m_MenuSceneName = "Menu";
+
+        #endregion
+
+
+        #region FIELDS
+
+        private IGameManager m_GameManager;
+        private ISceneLoader m_SceneLoader;
+        private ISaveService m_SaveService;
+        private IAudioService m_AudioService;
+        private ScoreManager m_ScoreManager;
+        private RunManager m_RunManager;
+        private GameFlow m_GameFlow;
+
+        private InputAction m_PauseAction;
+        private InputAction m_ConfirmAction;
+        private InputAction m_CancelAction;
+
+        #endregion
+
+
+        #region UNITY CALLBACKS
+
+        private void Awake()
+        {
+            m_GameManager = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IGameManager>() : null;
+            m_SceneLoader = ServiceLocator.Current != null ? ServiceLocator.Current.Get<ISceneLoader>() : null;
+            m_SaveService = ServiceLocator.Current != null ? ServiceLocator.Current.Get<ISaveService>() : null;
+            m_AudioService = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IAudioService>() : null;
+
+            ResolveActions();
+            BindButtons();
+        }
+
+        private void OnEnable()
+        {
+            if (m_GameManager != null)
+            {
+                m_GameManager.StateChanged += HandleStateChanged;
+            }
+
+            ResolveSceneSystems();
+        }
+
+        private void OnDisable()
+        {
+            if (m_GameManager != null)
+            {
+                m_GameManager.StateChanged -= HandleStateChanged;
+            }
+
+            UnsubscribeSceneSystems();
+        }
+
+        private void Update()
+        {
+            ReadUIInput();
+        }
+
+        #endregion
+
+
+        #region PUBLIC METHODS
+
+        /// <inheritdoc />
+        public void ShowPanel(UIPanel panel)
+        {
+            if (m_HUDPanel != null) m_HUDPanel.SetActive(panel == UIPanel.HUD);
+            if (m_MainMenuPanel != null) m_MainMenuPanel.SetActive(panel == UIPanel.MainMenu);
+            if (m_PausePanel != null) m_PausePanel.SetActive(panel == UIPanel.Pause);
+            if (m_GameOverPanel != null) m_GameOverPanel.SetActive(panel == UIPanel.GameOver);
+            if (m_OptionsPanel != null) m_OptionsPanel.SetActive(panel == UIPanel.Options);
+            if (m_ControlsPanel != null) m_ControlsPanel.SetActive(panel == UIPanel.Controls);
+            if (m_CreditsPanel != null) m_CreditsPanel.SetActive(panel == UIPanel.Credits);
+        }
+
+        /// <inheritdoc />
+        public void GoToMenu()
+        {
+            GameFlow()?.GoToMenu();
+        }
+
+        /// <inheritdoc />
+        public void ShowGameOver(int score, int bestScore, bool isNewRecord)
+        {
+            if (m_FinalScoreText != null) m_FinalScoreText.text = score.ToString();
+            if (m_BestScoreText != null) m_BestScoreText.text = bestScore.ToString();
+            if (m_NewRecordText != null) m_NewRecordText.SetActive(isNewRecord);
+        }
+
+        /// <inheritdoc />
+        public void SetHudScore(int score)
+        {
+            if (m_ScoreText != null) m_ScoreText.text = score.ToString();
+        }
+
+        /// <inheritdoc />
+        public void SetHudDistance(float distance)
+        {
+            if (m_DistanceText != null) m_DistanceText.text = $"{Mathf.FloorToInt(distance)} m";
+        }
+
+        /// <inheritdoc />
+        public void SetHudActiveColor(ColorId color)
+        {
+            if (m_ActiveColorImage == null || m_Palette == null)
+            {
+                return;
+            }
+
+            m_ActiveColorImage.color = m_Palette.GetColor(color);
+        }
+
+        /// <inheritdoc />
+        public void SetHudShield(bool active)
+        {
+            if (m_ShieldIcon != null) m_ShieldIcon.SetActive(active);
+        }
+
+        /// <inheritdoc />
+        public void SetHudBoost(bool active, float normalizedTimeLeft)
+        {
+            if (m_BoostIcon != null) m_BoostIcon.SetActive(active);
+
+            if (m_BoostFill != null)
+            {
+                m_BoostFill.fillAmount = Mathf.Clamp01(normalizedTimeLeft);
+            }
+        }
+
+        /// <inheritdoc />
+        public void ApplySettings(SettingsData settings)
+        {
+            if (settings == null)
+            {
+                return;
+            }
+
+            if (m_MasterSlider != null) m_MasterSlider.value = PercentFromNormalized(settings.MasterVolume);
+            if (m_MusicSlider != null) m_MusicSlider.value = PercentFromNormalized(settings.MusicVolume);
+            if (m_SfxSlider != null) m_SfxSlider.value = PercentFromNormalized(settings.SfxVolume);
+            if (m_MuteToggle != null) m_MuteToggle.isOn = settings.IsMuted;
+        }
+
+        /// <inheritdoc />
+        public SettingsData CollectSettings()
+        {
+            SettingsData result = m_SaveService != null ? m_SaveService.GetSettings() : new SettingsData();
+
+            if (m_MasterSlider != null) result.MasterVolume = NormalizedFromPercent(m_MasterSlider.value);
+            if (m_MusicSlider != null) result.MusicVolume = NormalizedFromPercent(m_MusicSlider.value);
+            if (m_SfxSlider != null) result.SfxVolume = NormalizedFromPercent(m_SfxSlider.value);
+            if (m_MuteToggle != null) result.IsMuted = m_MuteToggle.isOn;
+
+            return result;
+        }
+
+        #endregion
+
+
+        #region PRIVATE METHODS
+
+        private void ResolveActions()
+        {
+            if (m_InputActions == null)
+            {
+                return;
+            }
+
+            m_PauseAction = m_InputActions.FindAction(UIInput.c_Pause);
+            m_ConfirmAction = m_InputActions.FindAction(UIInput.c_Confirm);
+            m_CancelAction = m_InputActions.FindAction(UIInput.c_Cancel);
+
+            if (m_PauseAction != null) m_PauseAction.Enable();
+            if (m_ConfirmAction != null) m_ConfirmAction.Enable();
+            if (m_CancelAction != null) m_CancelAction.Enable();
+        }
+
+        private void BindButtons()
+        {
+            if (m_PauseButton != null) m_PauseButton.onClick.AddListener(() => GameFlow()?.Pause());
+            if (m_PlayButton != null) m_PlayButton.onClick.AddListener(StartGame);
+            if (m_OptionsButton != null) m_OptionsButton.onClick.AddListener(ShowOptions);
+            if (m_CreditsButton != null) m_CreditsButton.onClick.AddListener(() => ShowPanel(UIPanel.Credits));
+            if (m_QuitButton != null) m_QuitButton.onClick.AddListener(QuitGame);
+
+            if (m_ResumeButton != null) m_ResumeButton.onClick.AddListener(() => GameFlow()?.Resume());
+            if (m_PauseOptionsButton != null) m_PauseOptionsButton.onClick.AddListener(ShowOptions);
+            if (m_PauseMenuButton != null) m_PauseMenuButton.onClick.AddListener(() => GameFlow()?.GoToMenu());
+
+            if (m_RetryButton != null) m_RetryButton.onClick.AddListener(() => GameFlow()?.Restart());
+            if (m_GameOverMenuButton != null) m_GameOverMenuButton.onClick.AddListener(() => GameFlow()?.GoToMenu());
+
+            if (m_ControlsButton != null) m_ControlsButton.onClick.AddListener(() => ShowPanel(UIPanel.Controls));
+            if (m_OptionsBackButton != null) m_OptionsBackButton.onClick.AddListener(ApplyAndCloseOptions);
+            if (m_ControlsBackButton != null) m_ControlsBackButton.onClick.AddListener(ShowOptions);
+
+            if (m_CreditsSkipButton != null) m_CreditsSkipButton.onClick.AddListener(() => GameFlow()?.GoToMenu());
+
+            BindOptionsInputs();
+        }
+
+        private void BindOptionsInputs()
+        {
+            if (m_MasterSlider != null) m_MasterSlider.onValueChanged.AddListener(_ => ApplyOptionsToAudio());
+            if (m_MusicSlider != null) m_MusicSlider.onValueChanged.AddListener(_ => ApplyOptionsToAudio());
+            if (m_SfxSlider != null) m_SfxSlider.onValueChanged.AddListener(_ => ApplyOptionsToAudio());
+            if (m_MuteToggle != null) m_MuteToggle.onValueChanged.AddListener(_ => ApplyOptionsToAudio());
+        }
+
+        private void HandleStateChanged(GameState state)
+        {
+            switch (state)
+            {
+                case GameState.MainMenu:
+                    ShowPanel(UIPanel.MainMenu);
+                    break;
+                case GameState.Playing:
+                    ShowPanel(UIPanel.HUD);
+                    SubscribeSceneSystems();
+                    break;
+                case GameState.Paused:
+                    ShowPanel(UIPanel.Pause);
+                    break;
+                case GameState.GameOver:
+                    ShowPanel(UIPanel.GameOver);
+                    break;
+            }
+        }
+
+        private void ResolveSceneSystems()
+        {
+            m_ScoreManager = Object.FindObjectOfType<ScoreManager>();
+            m_RunManager = Object.FindObjectOfType<RunManager>();
+            m_GameFlow = Object.FindObjectOfType<GameFlow>();
+        }
+
+        private void SubscribeSceneSystems()
+        {
+            if (m_ScoreManager != null)
+            {
+                m_ScoreManager.OnScoreChanged += SetHudScore;
+                m_ScoreManager.OnColorChanged += SetHudActiveColor;
+                m_ScoreManager.OnShieldChanged += SetHudShield;
+                m_ScoreManager.OnBoostChanged += HandleBoostChanged;
+                m_ScoreManager.OnPlayerDied += HandlePlayerDied;
+            }
+
+            if (m_RunManager != null)
+            {
+                m_RunManager.OnDistanceChanged += SetHudDistance;
+            }
+        }
+
+        private void UnsubscribeSceneSystems()
+        {
+            if (m_ScoreManager != null)
+            {
+                m_ScoreManager.OnScoreChanged -= SetHudScore;
+                m_ScoreManager.OnColorChanged -= SetHudActiveColor;
+                m_ScoreManager.OnShieldChanged -= SetHudShield;
+                m_ScoreManager.OnBoostChanged -= HandleBoostChanged;
+                m_ScoreManager.OnPlayerDied -= HandlePlayerDied;
+            }
+
+            if (m_RunManager != null)
+            {
+                m_RunManager.OnDistanceChanged -= SetHudDistance;
+            }
+        }
+
+        private void ReadUIInput()
+        {
+            if (m_PauseAction != null && m_PauseAction.WasPressedThisFrame())
+            {
+                if (m_GameManager != null && m_GameManager.CurrentState == GameState.Playing)
+                {
+                    GameFlow()?.Pause();
+                }
+                else if (m_GameManager != null && m_GameManager.CurrentState == GameState.Paused)
+                {
+                    GameFlow()?.Resume();
+                }
+            }
+        }
+
+        private void StartGame()
+        {
+            GameFlow()?.StartGame();
+        }
+
+        private void ShowOptions()
+        {
+            if (m_SaveService != null)
+            {
+                ApplySettings(m_SaveService.GetSettings());
+            }
+
+            ShowPanel(UIPanel.Options);
+        }
+
+        private void ApplyAndCloseOptions()
+        {
+            ApplyOptionsToAudio();
+            ShowPanel(UIPanel.Pause);
+        }
+
+        private void ApplyOptionsToAudio()
+        {
+            SettingsData settings = CollectSettings();
+
+            m_SaveService?.SetSettings(settings);
+            m_SaveService?.Save();
+
+            m_AudioService?.SetMasterVolume(settings.MasterVolume);
+            m_AudioService?.SetMusicVolume(settings.MusicVolume);
+            m_AudioService?.SetSfxVolume(settings.SfxVolume);
+            m_AudioService?.SetMuted(settings.IsMuted);
+        }
+
+        private void HandleBoostChanged(System.Collections.Generic.List<ColorId> colors)
+        {
+            bool active = colors != null && colors.Count > 0;
+            SetHudBoost(active, active ? 1f : 0f);
+        }
+
+        private void HandlePlayerDied()
+        {
+            if (m_ScoreManager == null)
+            {
+                return;
+            }
+
+            ShowGameOver(m_ScoreManager.Score, m_ScoreManager.BestScore, m_ScoreManager.Score >= m_ScoreManager.BestScore && m_ScoreManager.Score > 0);
+        }
+
+        private void QuitGame()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+        private GameFlow GameFlow()
+        {
+            if (m_GameFlow == null)
+            {
+                m_GameFlow = Object.FindObjectOfType<GameFlow>();
+            }
+
+            return m_GameFlow;
+        }
+
+        private float NormalizedFromPercent(float percent)
+        {
+            return Mathf.Clamp01(percent / 100f);
+        }
+
+        private float PercentFromNormalized(float normalized)
+        {
+            return Mathf.Clamp01(normalized) * 100f;
+        }
+
+        #endregion
+    }
+}

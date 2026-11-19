@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
@@ -211,6 +212,13 @@ namespace PowerPulse.Core
             if (m_OptionsPanel != null) m_OptionsPanel.SetActive(panel == UIPanel.Options);
             if (m_ControlsPanel != null) m_ControlsPanel.SetActive(panel == UIPanel.Controls);
             if (m_CreditsPanel != null) m_CreditsPanel.SetActive(panel == UIPanel.Credits);
+
+            // Clear the previous selection so the new panel does not inherit a
+            // stale selected GameObject from the panel that was just hidden.
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
         }
 
         /// <inheritdoc />
@@ -306,9 +314,9 @@ namespace PowerPulse.Core
                 return;
             }
 
-            m_PauseAction = m_InputActions.FindAction(UIInput.c_Pause);
-            m_ConfirmAction = m_InputActions.FindAction(UIInput.c_Confirm);
-            m_CancelAction = m_InputActions.FindAction(UIInput.c_Cancel);
+            m_PauseAction = UIInput.Find(m_InputActions, UIInput.c_Pause);
+            m_ConfirmAction = UIInput.Find(m_InputActions, UIInput.c_Confirm);
+            m_CancelAction = UIInput.Find(m_InputActions, UIInput.c_Cancel);
 
             if (m_PauseAction != null) m_PauseAction.Enable();
             if (m_ConfirmAction != null) m_ConfirmAction.Enable();
@@ -428,10 +436,13 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
-        /// Reads the UI pause action (Esc) in Playing/Paused. The action map is
-        /// enabled in <see cref="ResolveActions"/>; there is no
-        /// <see cref="UIInput.Find"/> usage because this asset reference is
-        /// already scoped to the UI map.
+        /// Reads the UI actions (Esc pause/resume, Enter/E confirm, Esc cancel)
+        /// from the UI action map. When the EventSystem has a selected
+        /// GameObject the Confirm/Cancel inputs are dispatched to it (submit /
+        /// cancel handlers), so buttons react to keyboard and gamepad. With no
+        /// selection, the inputs fall back to the panel-level defaults:
+        /// MainMenu Confirm starts the game, Paused Cancel resumes, and
+        /// GameOver Confirm restarts.
         /// </summary>
         private void ReadUIInput()
         {
@@ -445,6 +456,66 @@ namespace PowerPulse.Core
                 {
                     GameFlow()?.Resume();
                 }
+            }
+
+            HandleConfirmInput();
+            HandleCancelInput();
+        }
+
+        private void HandleConfirmInput()
+        {
+            if (m_ConfirmAction == null || !m_ConfirmAction.WasPressedThisFrame())
+            {
+                return;
+            }
+
+            GameObject selected = EventSystem.current != null
+                ? EventSystem.current.currentSelectedGameObject
+                : null;
+
+            if (selected != null)
+            {
+                EventSystem.current.SetSelectedGameObject(selected);
+                ExecuteEvents.Execute(selected, null, ExecuteEvents.submitHandler);
+                return;
+            }
+
+            if (m_GameManager == null)
+            {
+                return;
+            }
+
+            switch (m_GameManager.CurrentState)
+            {
+                case GameState.MainMenu:
+                    StartGame();
+                    break;
+                case GameState.GameOver:
+                    GameFlow()?.Restart();
+                    break;
+            }
+        }
+
+        private void HandleCancelInput()
+        {
+            if (m_CancelAction == null || !m_CancelAction.WasPressedThisFrame())
+            {
+                return;
+            }
+
+            GameObject selected = EventSystem.current != null
+                ? EventSystem.current.currentSelectedGameObject
+                : null;
+
+            if (selected != null)
+            {
+                ExecuteEvents.Execute(selected, null, ExecuteEvents.cancelHandler);
+                return;
+            }
+
+            if (m_GameManager != null && m_GameManager.CurrentState == GameState.Paused)
+            {
+                GameFlow()?.Resume();
             }
         }
 

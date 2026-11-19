@@ -256,12 +256,16 @@ namespace PowerPulse.Core
         /// <param name="state">New global game state.</param>
         private void HandleStateChanged(GameState state)
         {
+            // A run starts exactly once, when the Game scene loads and the state
+            // is already Playing. Resume/Restart must not go through this path
+            // again: they manage the run themselves.
+            if (state == GameState.Playing && !HasStarted)
+            {
+                StartRun();
+            }
+
             switch (state)
             {
-                case GameState.Playing:
-                    StartRun();
-                    break;
-
                 case GameState.Paused:
                 case GameState.GameOver:
                 case GameState.MainMenu:

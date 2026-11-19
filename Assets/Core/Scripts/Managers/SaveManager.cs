@@ -1,12 +1,26 @@
+using System;
+using UnityEngine;
+
 namespace PowerPulse.Core
 {
     /// <summary>
     /// Plain C# service that owns the local persistence of the score record and
     /// the player settings. Created with <c>new</c> and registered by the
-    /// Bootstraper. The PlayerPrefs/JSON implementation is completed in Phase 14.
+    /// Bootstraper. Stores the data as JSON in <see cref="PlayerPrefs"/>.
     /// </summary>
     public class SaveManager : ISaveService
     {
+        #region STATIC
+
+        /// <summary>PlayerPrefs key of the serialized score record.</summary>
+        private const string c_ScoreKey = "PowerPulse.Score";
+
+        /// <summary>PlayerPrefs key of the serialized settings.</summary>
+        private const string c_SettingsKey = "PowerPulse.Settings";
+
+        #endregion
+
+
         #region FIELDS
 
         private ScoreData m_ScoreData = new ScoreData();
@@ -20,13 +34,15 @@ namespace PowerPulse.Core
         /// <inheritdoc />
         public void Load()
         {
-            // TODO (Phase 14): read the JSON from PlayerPrefs and populate the data.
+            LoadScore();
+            LoadSettings();
         }
 
         /// <inheritdoc />
         public void Save()
         {
-            // TODO (Phase 14): serialize the data to JSON and write it to PlayerPrefs.
+            SaveScore();
+            SaveSettings();
         }
 
         /// <inheritdoc />
@@ -38,10 +54,13 @@ namespace PowerPulse.Core
         /// <inheritdoc />
         public void SetBestScore(int score)
         {
-            if (score > m_ScoreData.BestScore)
+            if (score <= m_ScoreData.BestScore)
             {
-                m_ScoreData.BestScore = score;
+                return;
             }
+
+            m_ScoreData.BestScore = score;
+            SaveScore();
         }
 
         /// <inheritdoc />
@@ -59,6 +78,70 @@ namespace PowerPulse.Core
             }
 
             m_Settings = settings;
+            SaveSettings();
+        }
+
+        #endregion
+
+
+        #region PRIVATE METHODS
+
+        /// <summary>Reads the score record, falling back to defaults when missing or corrupted.</summary>
+        private void LoadScore()
+        {
+            string json = PlayerPrefs.GetString(c_ScoreKey, string.Empty);
+
+            if (string.IsNullOrEmpty(json))
+            {
+                m_ScoreData = new ScoreData();
+                return;
+            }
+
+            try
+            {
+                m_ScoreData = JsonUtility.FromJson<ScoreData>(json) ?? new ScoreData();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[SaveManager] Corrupted score data, using defaults. {e.Message}");
+                m_ScoreData = new ScoreData();
+            }
+        }
+
+        /// <summary>Reads the settings, falling back to defaults when missing or corrupted.</summary>
+        private void LoadSettings()
+        {
+            string json = PlayerPrefs.GetString(c_SettingsKey, string.Empty);
+
+            if (string.IsNullOrEmpty(json))
+            {
+                m_Settings = new SettingsData();
+                return;
+            }
+
+            try
+            {
+                m_Settings = JsonUtility.FromJson<SettingsData>(json) ?? new SettingsData();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[SaveManager] Corrupted settings data, using defaults. {e.Message}");
+                m_Settings = new SettingsData();
+            }
+        }
+
+        /// <summary>Writes the score record to PlayerPrefs.</summary>
+        private void SaveScore()
+        {
+            PlayerPrefs.SetString(c_ScoreKey, JsonUtility.ToJson(m_ScoreData));
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>Writes the settings to PlayerPrefs.</summary>
+        private void SaveSettings()
+        {
+            PlayerPrefs.SetString(c_SettingsKey, JsonUtility.ToJson(m_Settings));
+            PlayerPrefs.Save();
         }
 
         #endregion

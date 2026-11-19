@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 using PowerPulse.Core;
+using Object = UnityEngine.Object;
 
 namespace PowerPulse.Core
 {

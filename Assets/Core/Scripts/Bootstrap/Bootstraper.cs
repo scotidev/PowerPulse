@@ -1,4 +1,5 @@
 using UnityEngine;
+using PowerPulse.Core;
 
 namespace PowerPulse.Core
 {
@@ -48,6 +49,7 @@ namespace PowerPulse.Core
             // --- Save Manager ---
             SaveManager saveManager = new SaveManager();
             ServiceLocator.Current.Register<ISaveService>(saveManager);
+            saveManager.Load();
 
             // --- Audio Manager ---
             // Needs a MonoBehaviour host for AudioSources.
@@ -55,16 +57,41 @@ namespace PowerPulse.Core
             AudioManager audioManager = audioObject.AddComponent<AudioManager>();
             Object.DontDestroyOnLoad(audioObject);
             ServiceLocator.Current.Register<IAudioService>(audioManager);
+            ApplySettingsToAudio(saveManager, audioManager);
+
+            // --- UI Manager ---
+            // Instantiated from a prefab so the panel references are set in the
+            // Inspector. The game runs without UI when the prefab is missing.
+            GameObject uiPrefab = Resources.Load<GameObject>("UI/UIManager");
+
+            if (uiPrefab == null)
+            {
+                Debug.LogError("[Bootstraper] UI prefab not found at 'Resources/UI/UIManager'. The game will run without UI.");
+            }
+            else
+            {
+                GameObject uiObject = Object.Instantiate(uiPrefab);
+                uiObject.name = uiPrefab.name;
+                Object.DontDestroyOnLoad(uiObject);
+                ServiceLocator.Current.Register<IUIManager>(uiObject.GetComponent<UIManager>());
+            }
+
+            Debug.Log("[Bootstraper] All persistent services registered.");
 
             // NOTE: Layer 1 (persistent) services are the ONLY ones registered here.
             // Layer 2 systems (RunManager, ScoreManager, ColorManager, SpawnManager,
             // Player, HUD, ObjectPool, obstacles, power-ups, portal, tutorial) live
             // inside the Game scene and are NOT registered in the ServiceLocator.
+        }
 
-            Debug.Log("[Bootstraper] All persistent services registered.");
-
-            // TEMP TEST — remove after checking the fade
-            ServiceLocator.Current.Get<ISceneLoader>().LoadScene("Game");
+        /// <summary>Applies the persisted settings to the audio service on boot.</summary>
+        private static void ApplySettingsToAudio(SaveManager saveManager, AudioManager audioManager)
+        {
+            SettingsData settings = saveManager.GetSettings();
+            audioManager.SetMasterVolume(settings.MasterVolume);
+            audioManager.SetMusicVolume(settings.MusicVolume);
+            audioManager.SetSfxVolume(settings.SfxVolume);
+            audioManager.SetMuted(settings.IsMuted);
         }
 
         #endregion

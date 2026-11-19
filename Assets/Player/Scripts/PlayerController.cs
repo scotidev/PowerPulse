@@ -67,6 +67,7 @@ namespace PowerPulse.Player
         private InputAction m_JumpAction;
         private int m_TargetLane;
         private bool m_IsGrounded;
+        private IGameManager m_GameManager;
 
         #endregion
 
@@ -104,6 +105,8 @@ namespace PowerPulse.Player
             m_DashLeftAction.Enable();
             m_DashRightAction.Enable();
             m_JumpAction.Enable();
+
+            m_GameManager = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IGameManager>() : null;
 
             m_TargetLane = 0;
         }
@@ -195,6 +198,13 @@ namespace PowerPulse.Player
 
         private void ReadInput()
         {
+            // Clicking a UI button must never move the sphere: the player only
+            // reacts while the run is actually playing.
+            if (m_GameManager == null || m_GameManager.CurrentState != GameState.Playing)
+            {
+                return;
+            }
+
             if (m_DashLeftAction != null && m_DashLeftAction.WasPressedThisFrame())
             {
                 Dash(-1);

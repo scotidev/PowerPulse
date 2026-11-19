@@ -20,10 +20,6 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Game balance asset with the speed and difficulty curves.")]
         private Config_GameBalance m_Balance;
 
-        [Header("State")]
-        [SerializeField, Tooltip("Starts the run automatically when the scene loads.")]
-        private bool m_AutoStart = true;
-
         #endregion
 
 
@@ -111,11 +107,6 @@ namespace PowerPulse.Core
         private void Start()
         {
             Reset();
-
-            if (m_AutoStart)
-            {
-                StartRun();
-            }
         }
 
         private void Update()

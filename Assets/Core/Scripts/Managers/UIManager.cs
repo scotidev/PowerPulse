@@ -353,21 +353,37 @@ namespace PowerPulse.Core
             if (m_MuteToggle != null) m_MuteToggle.onValueChanged.AddListener(_ => ApplyOptionsToAudio());
         }
 
+        /// <summary>
+        /// Reacts to the global game state: exactly one panel is visible per
+        /// state, and the HUD subscriptions follow it.
+        /// This runs while the UIManager is still enabled but the scene systems
+        /// of the previous run may already be destroyed, so every non-Playing
+        /// state unsubscribes BEFORE touching the panels: Unity compares a
+        /// destroyed object to null, and re-subscribing to those dead references
+        /// would silently kill the HUD on the next run.
+        /// </summary>
+        /// <param name="state">New global game state.</param>
         private void HandleStateChanged(GameState state)
         {
             switch (state)
             {
                 case GameState.MainMenu:
+                    UnsubscribeSceneSystems();
                     ShowPanel(UIPanel.MainMenu);
                     break;
                 case GameState.Playing:
+                    // Resolve first: the Game scene (and its ScoreManager/
+                    // RunManager) may be a different instance from the last run.
+                    ResolveSceneSystems();
                     ShowPanel(UIPanel.HUD);
                     SubscribeSceneSystems();
                     break;
                 case GameState.Paused:
+                    UnsubscribeSceneSystems();
                     ShowPanel(UIPanel.Pause);
                     break;
                 case GameState.GameOver:
+                    UnsubscribeSceneSystems();
                     ShowPanel(UIPanel.GameOver);
                     break;
             }
@@ -375,6 +391,9 @@ namespace PowerPulse.Core
 
         private void ResolveSceneSystems()
         {
+            // Object == null is true for BOTH a missing object and a destroyed
+            // one, so this is also what clears the dead references left behind
+            // when the Game scene is unloaded.
             m_ScoreManager = Object.FindObjectOfType<ScoreManager>();
             m_RunManager = Object.FindObjectOfType<RunManager>();
             m_GameFlow = Object.FindObjectOfType<GameFlow>();
@@ -414,6 +433,12 @@ namespace PowerPulse.Core
             }
         }
 
+        /// <summary>
+        /// Reads the UI pause action (Esc) in Playing/Paused. The action map is
+        /// enabled in <see cref="ResolveActions"/>; there is no
+        /// <see cref="UIInput.Find"/> usage because this asset reference is
+        /// already scoped to the UI map.
+        /// </summary>
         private void ReadUIInput()
         {
             if (m_PauseAction != null && m_PauseAction.WasPressedThisFrame())
@@ -463,12 +488,28 @@ namespace PowerPulse.Core
             m_AudioService?.SetMuted(settings.IsMuted);
         }
 
+        /// <summary>
+        /// TODO(Task 7 review): the ScoreManager publishes only OnBoostChanged
+        /// (colors), with no per-frame remaining-time event. BoostTimeLeft/
+        /// BoostDuration exist as properties, so the fill can be driven from
+        /// Update() while a boost is active instead of being pinned at 1. The
+        /// HUD icon state still comes from this event.
+        /// </summary>
+        /// <param name="colors">Colors covered by the boost (empty when it ended).</param>
         private void HandleBoostChanged(System.Collections.Generic.List<ColorId> colors)
         {
             bool active = colors != null && colors.Count > 0;
             SetHudBoost(active, active ? 1f : 0f);
         }
 
+        /// <summary>
+        /// TODO(Task 7 review): the new-record flag is unreliable here. ScoreManager.Die()
+        /// updates m_BestScore BEFORE raising OnPlayerDied, so by the time this
+        /// runs Score == BestScore even when the record was NOT beaten, making
+        /// the condition below true for every run with points. A dedicated
+        /// "record beaten" event (or the value returned by Die/CloseRun) is
+        /// needed to publish the label correctly.
+        /// </summary>
         private void HandlePlayerDied()
         {
             if (m_ScoreManager == null)

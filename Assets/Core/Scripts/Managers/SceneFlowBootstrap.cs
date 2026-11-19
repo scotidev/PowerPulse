@@ -13,23 +13,13 @@ namespace PowerPulse.Core
         /// <summary>Name of the scene that owns a GameFlow.</summary>
         private const string c_GameSceneName = "Game";
 
-        /// <summary>Guards against creating a second GameFlow.</summary>
-        private static bool s_Created;
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         public static void Initialize()
         {
-            if (s_Created)
-            {
-                return;
-            }
-
             if (SceneManager.GetActiveScene().name != c_GameSceneName)
             {
                 return;
             }
-
-            s_Created = true;
 
             if (Object.FindObjectOfType<GameFlow>() != null)
             {

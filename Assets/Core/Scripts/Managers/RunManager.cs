@@ -135,6 +135,20 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
+        /// Restores a paused run without resetting the progression.
+        /// </summary>
+        public void RestoreRun()
+        {
+            if (!IsRunning)
+            {
+                return;
+            }
+
+            IsRunning = true;
+            OnRunStarted?.Invoke();
+        }
+
+        /// <summary>
         /// Ends the current run. Does nothing when the run is not running.
         /// </summary>
         public void EndRun()
@@ -236,7 +250,7 @@ namespace PowerPulse.Core
             switch (state)
             {
                 case GameState.Playing:
-                    IsRunning = true;
+                    StartRun();
                     break;
 
                 case GameState.Paused:

@@ -96,6 +96,11 @@ namespace PowerPulse.Core
 
             m_GameManager.ResumeTime();
             m_GameManager.SetState(GameState.Playing);
+
+            if (m_RunManager != null)
+            {
+                m_RunManager.RestoreRun();
+            }
         }
 
         /// <summary>Restarts the run without reloading the scene.</summary>
@@ -138,13 +143,13 @@ namespace PowerPulse.Core
 
         #region PRIVATE METHODS
 
-        /// <summary>Starts the run when the Game scene finishes loading.</summary>
+        /// <summary>
+        /// The GameFlow only owns the transitions: who starts or restores the run
+        /// is the RunManager, which lives in the Game scene.
+        /// </summary>
+        /// <param name="state">New global game state.</param>
         private void HandleStateChanged(GameState state)
         {
-            if (state == GameState.Playing && m_RunManager != null)
-            {
-                m_RunManager.StartRun();
-            }
         }
 
         #endregion

@@ -124,7 +124,7 @@ namespace PowerPulse.Core
         /// <summary>Raised when a new run starts, so the scene systems reset.</summary>
         public event Action OnRunReset;
 
-        /// <summary>Raised when the player dies (no shield left).</summary>
+        /// <summary>Raised when the player dies.</summary>
         public event Action OnPlayerDied;
 
         /// <summary>Raised when the record is beaten, with the new record.</summary>

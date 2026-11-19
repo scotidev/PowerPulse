@@ -156,6 +156,9 @@ namespace PowerPulse.Core
         private InputAction m_ConfirmAction;
         private InputAction m_CancelAction;
 
+        /// <summary>Whether the run that just ended beat the record.</summary>
+        private bool m_IsNewRecord;
+
         /// <summary>Panel of the current game state (the base screen).</summary>
         private UIPanel m_StatePanel = UIPanel.MainMenu;
 
@@ -427,6 +430,9 @@ namespace PowerPulse.Core
 
         private void SubscribeSceneSystems()
         {
+            // A new run starts from zero, so the previous run's record no longer applies.
+            m_IsNewRecord = false;
+
             if (m_ScoreManager != null)
             {
                 m_ScoreManager.OnScoreChanged += SetHudScore;
@@ -434,6 +440,7 @@ namespace PowerPulse.Core
                 m_ScoreManager.OnShieldChanged += SetHudShield;
                 m_ScoreManager.OnBoostChanged += HandleBoostChanged;
                 m_ScoreManager.OnPlayerDied += HandlePlayerDied;
+                m_ScoreManager.OnRecordBeaten += HandleRecordBeaten;
             }
 
             if (m_RunManager != null)
@@ -451,6 +458,7 @@ namespace PowerPulse.Core
                 m_ScoreManager.OnShieldChanged -= SetHudShield;
                 m_ScoreManager.OnBoostChanged -= HandleBoostChanged;
                 m_ScoreManager.OnPlayerDied -= HandlePlayerDied;
+                m_ScoreManager.OnRecordBeaten -= HandleRecordBeaten;
             }
 
             if (m_RunManager != null)
@@ -638,7 +646,18 @@ namespace PowerPulse.Core
                 return;
             }
 
-            ShowGameOver(m_ScoreManager.Score, m_ScoreManager.BestScore, m_ScoreManager.Score >= m_ScoreManager.BestScore && m_ScoreManager.Score > 0);
+            ShowGameOver(m_ScoreManager.Score, m_ScoreManager.BestScore, m_IsNewRecord);
+        }
+
+        /// <summary>
+        /// Remembers that the run beat the record. Published before
+        /// <c>OnPlayerDied</c>, so comparing the scores afterwards would always
+        /// be true.
+        /// </summary>
+        /// <param name="newRecord">The new record.</param>
+        private void HandleRecordBeaten(int newRecord)
+        {
+            m_IsNewRecord = true;
         }
 
         private void QuitGame()

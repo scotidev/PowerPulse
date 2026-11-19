@@ -138,13 +138,6 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Skip button on the credits panel.")]
         private Button m_CreditsSkipButton;
 
-        [Header("Scene / Flow")]
-        [SerializeField, Tooltip("Game scene name, used by GameFlow.")]
-        private string m_GameSceneName = "Game";
-
-        [SerializeField, Tooltip("Menu scene name, used by GameFlow.")]
-        private string m_MenuSceneName = "Menu";
-
         #endregion
 
 

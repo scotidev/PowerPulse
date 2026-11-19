@@ -46,6 +46,13 @@ namespace PowerPulse.Core
         /// <summary>Whether the run is currently running.</summary>
         public bool IsRunning { get; private set; }
 
+        /// <summary>
+        /// Whether the run has already started. Kept separately from
+        /// <see cref="IsRunning"/> so pausing does not make a paused run look
+        /// like a run that never started (which would restart it on resume).
+        /// </summary>
+        public bool HasStarted { get; private set; }
+
         /// <summary>Milestone currently applied to the run (null before the first one).</summary>
         public Config_GameBalance.DifficultyMilestone ActiveMilestone => m_ActiveMilestone;
 
@@ -130,6 +137,7 @@ namespace PowerPulse.Core
         public void StartRun()
         {
             Reset();
+            HasStarted = true;
             IsRunning = true;
             OnRunStarted?.Invoke();
         }
@@ -139,7 +147,7 @@ namespace PowerPulse.Core
         /// </summary>
         public void RestoreRun()
         {
-            if (!IsRunning)
+            if (!HasStarted)
             {
                 return;
             }
@@ -170,6 +178,7 @@ namespace PowerPulse.Core
             Speed = m_Balance != null ? m_Balance.InitialSpeed : 0f;
             Distance = 0f;
             Difficulty = 0f;
+            HasStarted = false;
             m_ActiveMilestone = null;
             m_AppliedMilestoneIndex = -1;
         }

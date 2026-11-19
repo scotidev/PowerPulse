@@ -99,13 +99,31 @@ namespace PowerPulse.Core
 
             try
             {
-                m_ScoreData = JsonUtility.FromJson<ScoreData>(json) ?? new ScoreData();
+                ScoreData loaded = JsonUtility.FromJson<ScoreData>(json) ?? new ScoreData();
+                m_ScoreData = Sanitize(loaded);
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"[SaveManager] Corrupted score data, using defaults. {e.Message}");
                 m_ScoreData = new ScoreData();
             }
+        }
+
+        /// <summary>
+        /// Guards against a partially valid JSON: <see cref="JsonUtility.FromJson"/>
+        /// is lenient and fills what it can, so a corrupted save can still produce
+        /// an out-of-range record instead of the safe default.
+        /// </summary>
+        /// <param name="data">Data read from the save.</param>
+        /// <returns>The same data when valid, or a fresh record when it is not.</returns>
+        private ScoreData Sanitize(ScoreData data)
+        {
+            if (data == null || data.BestScore < 0)
+            {
+                return new ScoreData();
+            }
+
+            return data;
         }
 
         /// <summary>Reads the settings, falling back to defaults when missing or corrupted.</summary>
@@ -121,13 +139,34 @@ namespace PowerPulse.Core
 
             try
             {
-                m_Settings = JsonUtility.FromJson<SettingsData>(json) ?? new SettingsData();
+                SettingsData loaded = JsonUtility.FromJson<SettingsData>(json) ?? new SettingsData();
+                m_Settings = Sanitize(loaded);
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"[SaveManager] Corrupted settings data, using defaults. {e.Message}");
                 m_Settings = new SettingsData();
             }
+        }
+
+        /// <summary>
+        /// Clamps the persisted volumes into the valid 0-1 range. A partially
+        /// valid JSON can carry a value the audio service would reject.
+        /// </summary>
+        /// <param name="data">Data read from the save.</param>
+        /// <returns>The clamped settings.</returns>
+        private SettingsData Sanitize(SettingsData data)
+        {
+            if (data == null)
+            {
+                return new SettingsData();
+            }
+
+            data.MasterVolume = Mathf.Clamp01(data.MasterVolume);
+            data.MusicVolume = Mathf.Clamp01(data.MusicVolume);
+            data.SfxVolume = Mathf.Clamp01(data.SfxVolume);
+
+            return data;
         }
 
         /// <summary>Writes the score record to PlayerPrefs.</summary>

@@ -228,7 +228,7 @@ namespace PowerPulse.Core
         /// <summary>Returns whether the mixer exposes the given parameter.</summary>
         private bool HasParameter(string name)
         {
-            return m_Mixer != null && m_Mixer.FindParameter(name) != null;
+            return m_Mixer != null && m_Mixer.GetFloat(name, out _);
         }
 
         #endregion

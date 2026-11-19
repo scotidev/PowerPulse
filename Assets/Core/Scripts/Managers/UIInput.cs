@@ -28,7 +28,10 @@ namespace PowerPulse.Core
                 return null;
             }
 
-            return asset.FindAction(actionName);
+            // Scoped to the UI map on purpose: an action with the same name in
+            // another map would otherwise be returned first.
+            InputActionMap map = asset.FindActionMap(c_MapName, true);
+            return map != null ? map.FindAction(actionName) : null;
         }
     }
 }

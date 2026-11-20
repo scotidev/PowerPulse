@@ -202,9 +202,28 @@ namespace PowerPulse.Core
             m_Mixer.SetFloat(parameter, decibels);
         }
 
+        /// <summary>
+        /// Resolves the mixer. The AudioManager is created in code (no Inspector
+        /// to assign the field), so it looks for the mixer asset in Resources
+        /// and falls back to a warning when it is missing.
+        /// </summary>
+        private void ResolveMixer()
+        {
+            if (m_Mixer != null)
+            {
+                return;
+            }
+
+            // Kept in Resources so the runtime can load it without a serialized
+            // reference: the AudioManager is created by the Bootstraper.
+            m_Mixer = Resources.Load<AudioMixer>("Audio/PowerPulseAudio");
+        }
+
         /// <summary>Logs a warning when the mixer or its parameters are missing.</summary>
         private void ValidateMixer()
         {
+            ResolveMixer();
+
             if (m_Mixer == null)
             {
                 Debug.LogWarning("[AudioManager] No AudioMixer assigned. Audio volume will not change.");

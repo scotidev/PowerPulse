@@ -73,7 +73,17 @@ namespace PowerPulse.Core
                 GameObject uiObject = Object.Instantiate(uiPrefab);
                 uiObject.name = uiPrefab.name;
                 Object.DontDestroyOnLoad(uiObject);
-                ServiceLocator.Current.Register<IUIManager>(uiObject.GetComponent<UIManager>());
+
+                UIManager uiManager = uiObject.GetComponent<UIManager>();
+
+                if (uiManager == null)
+                {
+                    Debug.LogError("[Bootstraper] The UI prefab has no UIManager component. The game will run without UI.");
+                }
+                else
+                {
+                    ServiceLocator.Current.Register<IUIManager>(uiManager);
+                }
             }
 
             Debug.Log("[Bootstraper] All persistent services registered.");

@@ -114,6 +114,15 @@ namespace PowerPulse.Core
         private void Start()
         {
             Reset();
+
+            // The Game scene can load while the state is already Playing: the
+            // StateChanged event fired before this component subscribed, so the
+            // run would never start. Applying the current state here covers both
+            // that case and a cold start.
+            if (m_GameManager != null)
+            {
+                HandleStateChanged(m_GameManager.CurrentState);
+            }
         }
 
         private void Update()

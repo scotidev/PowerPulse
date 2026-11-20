@@ -189,6 +189,12 @@ namespace PowerPulse.Core
             if (m_GameManager != null)
             {
                 m_GameManager.StateChanged += HandleStateChanged;
+
+                // The game can already be in a state (MainMenu on boot, or a
+                // reloaded scene in any other state). No StateChanged event is
+                // raised for the current state, so the panel has to be applied
+                // once here — otherwise the UI loads and stays invisible.
+                HandleStateChanged(m_GameManager.CurrentState);
             }
 
             ResolveSceneSystems();

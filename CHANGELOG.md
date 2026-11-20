@@ -7,6 +7,53 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
+## Fase 11 — HUD, menus e fluxo de jogo
+
+### Added
+
+- `UIManager` (`Assets/Core/Scripts/Managers/UIManager.cs`): dono único de todos os painéis (HUD, MainMenu, Pause, GameOver, Options, Controls, Credits). Reage ao `IGameManager.StateChanged`, assina/desinscreve `ScoreManager`/`RunManager`, lê o action map `UI` (Esc/Enter/E), liga os botões e gerencia os sliders de volume.
+- `IUIManager` + `UIPanel`: contrato e enum dos painéis, registrados no `ServiceLocator`.
+- `GameFlow` + `SceneFlowBootstrap` (`Assets/Core/Scripts/Managers/`): transições `StartGame`/`Pause`/`Resume`/`Restart`/`GoToMenu`. O `GameFlow` nasce por script nas cenas `Menu` e `Game` (não precisa de GameObject na cena).
+- `UIInput`: helper estático para o action map `UI`, escopado ao mapa (evita colisão de nome entre mapas).
+- Action map `UI` no `PowerPulseInputActions` (`Pause` = Esc, `Confirm` = Enter/E, `Cancel` = Esc). O mapa `Player` e os control schemes foram preservados.
+- `SaveManager` real: PlayerPrefs + JSON para `ScoreData` e `SettingsData`, com defaults seguros e log de aviso para save corrompido.
+- `AudioManager` real: `AudioMixer` com `MasterVolume`/`MusicVolume`/`SfxVolume`, pool de `AudioSource` para SFX e conversão de volume para decibéis.
+- `UIButtonSound` (`Assets/Core/Scripts/UI/`): placeholder opcional de som de clique nos botões de UI.
+- `GameFlow`, `SceneFlowBootstrap`, `UIManager`, `IUIManager`, `UIInput`, `UIPanel`, `UIButtonSound` — scripts e `.meta` novos.
+
+### Changed
+
+- `Bootstraper`: removida a linha temporária `LoadScene("Game")`; instância o prefab `UIManager` de `Resources/UI/UIManager` com `DontDestroyOnLoad` e registra `IUIManager`; chama `saveManager.Load()` e aplica os volumes no `AudioManager`.
+- `AudioManager` passa a resolver o mixer em `Resources/Audio/PowerPulseAudio` quando o campo está vazio (o manager nasce por código, sem Inspector para atribuir).
+- `PlayerController` só lê dash/pulo quando o estado global é `Playing` — clicar em botão de UI não move mais a esfera.
+- `RunManager` perdeu o `m_AutoStart` (a run passa a ser iniciada pelo `GameFlow`); ganhou `HasStarted` e `RestoreRun()`.
+- O mixer `PowerPulseAudio.mixer` foi movido para `Assets/Core/ScriptableObjects/Resources/Audio/` para ser carregado em runtime.
+
+### Fixed
+
+- **A run nunca começava.** `GameFlow.StartGame()` mudava o estado para `Playing` antes de carregar a cena `Game`; o `RunManager` se inscrevia depois, o evento já tinha disparado e ninguém chamava `StartRun()`. O `RunManager.Start()` agora aplica o estado atual.
+- **A UI nascia invisível.** O `UIManager` só ligava painéis em resposta ao `StateChanged`; no boot o jogo já está em `MainMenu` e o evento não dispara. O `OnEnable` aplica o painel do estado atual.
+- **`Resume()` reiniciava a corrida.** `StartRun()` chama `Reset()` (zera distância/velocidade), então pausar e continuar recomeçava o jogo. Criado `RunManager.RestoreRun()` com o flag `HasStarted`, separado de `IsRunning`.
+- **`Restart` chamava `StartRun()` duas vezes** (o evento `Playing` + a chamada explícita). O `HandleStateChanged` só inicia a run se `!HasStarted`.
+- **`GameFlow` não nascia no Menu.** O `SceneFlowBootstrap` criava o flow só na cena `Game`, então o botão Jogar não funcionava. Agora cria nas duas cenas.
+- **O `UIManager` persistente não desinscrevia os scene-systems.** Ao sair do `Game` para o Menu, os managers ficavam apontando para objetos destruídos (o Unity compara destruído como `null`), e o HUD morria na segunda run. `UnsubscribeSceneSystems()` roda em `MainMenu`/`Paused`/`GameOver`, e `ResolveSceneSystems()` roda ao entrar em `Playing`.
+- **Overlays não existiam de verdade.** `ShowOptions()` usava `ShowPanel()`, que desligava o Menu, e o Voltar sempre ia para Pausa. Separados `m_StatePanel` e `m_OverlayPanel`, com `ShowOverlay`/`CloseOverlay`; `ShowPanel` fecha overlays abertos.
+- **`AudioMixer.FindParameter` não existe no Unity 6000.6** — usava uma API inexistente e não compilava. Trocado por `GetFloat(nome, out _)`.
+- **`Confirm`/`Cancel` habilitados e nunca lidos.** Agora `ReadUIInput` chama `HandleConfirmInput`/`HandleCancelInput` (despacho no botão selecionado + atalhos sem seleção) e o fallback não age com overlay aberto.
+- **Selo de "novo recorde" sempre visível.** O `ScoreManager` atualiza o recorde antes de avisar a UI, então `Score >= BestScore` era sempre verdadeiro. O `UIManager` passou a assinar `OnRecordBeaten`.
+- **`SaveManager.Load()` nunca era chamado** — o recorde salvo não era lido e podia ser sobrescrito por um score menor. Agora é chamado no `Bootstraper`.
+- **Save parcialmente válido não era detectado.** O `JsonUtility.FromJson` é leniente; um save corrompido podia carregar `BestScore` negativo ou volumes fora da faixa. Adicionados `Sanitize` (valida o recorde e aplica `Clamp01` nos volumes).
+- **`m_AutoStart` órfão** removido do YAML de `Assets/Scenes/Game.unity`.
+- **`Object` ambíguo no `UIManager`** (`using System;` + `UnityEngine`): adicionado o alias `using Object = UnityEngine.Object;`.
+- **Campos mortos removidos** do `UIManager` (`m_GameSceneName`, `m_MenuSceneName`).
+- **O `Bootstraper` não registrava `null`** se o prefab de UI existisse sem o componente `UIManager`.
+
+### Removed
+
+- A linha temporária `LoadScene("Game")` do `Bootstraper` (o jogo agora abre no Menu).
+- O campo `m_AutoStart` do `RunManager`.
+- O estado `GameState.Tutorial` e toda a seção de tutorial dos docs (ver entrada "Remoção do tutorial", acima).
+
 ## Remoção do tutorial (docs + estado de jogo)
 
 ### Removed

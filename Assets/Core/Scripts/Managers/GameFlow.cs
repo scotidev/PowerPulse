@@ -36,7 +36,7 @@ namespace PowerPulse.Core
         {
             m_GameManager = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IGameManager>() : null;
             m_SceneLoader = ServiceLocator.Current != null ? ServiceLocator.Current.Get<ISceneLoader>() : null;
-            m_RunManager = Object.FindObjectOfType<RunManager>();
+            m_RunManager = Object.FindAnyObjectByType<RunManager>();
         }
 
         private void OnEnable()

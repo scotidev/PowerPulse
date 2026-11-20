@@ -2,9 +2,11 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 using PowerPulse.Core;
+using PowerPulse.Obstacles;
 using Object = UnityEngine.Object;
 
 namespace PowerPulse.Core
@@ -22,9 +24,6 @@ namespace PowerPulse.Core
         [Header("Config")]
         [SerializeField, Tooltip("Input actions asset that owns the UI action map.")]
         private InputActionAsset m_InputActions;
-
-        [SerializeField, Tooltip("Color palette used to tint the HUD active color indicator.")]
-        private SO_ColorPalette m_Palette;
 
         [Header("Panels")]
         [SerializeField, Tooltip("In-run HUD panel.")]
@@ -54,18 +53,6 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("Distance text.")]
         private TextMeshProUGUI m_DistanceText;
-
-        [SerializeField, Tooltip("Image that shows the active color.")]
-        private Image m_ActiveColorImage;
-
-        [SerializeField, Tooltip("Icon shown while the shield is active.")]
-        private GameObject m_ShieldIcon;
-
-        [SerializeField, Tooltip("Icon shown while a boost is active.")]
-        private GameObject m_BoostIcon;
-
-        [SerializeField, Tooltip("Fill that shows the remaining boost time.")]
-        private Image m_BoostFill;
 
         [SerializeField, Tooltip("Pause button on the HUD.")]
         private Button m_PauseButton;
@@ -168,6 +155,13 @@ namespace PowerPulse.Core
         /// </summary>
         private UIPanel m_OverlayPanel = UIPanel.HUD;
 
+        /// <summary>
+        /// Remembers which state panel was active when an overlay was opened,
+        /// so closing the overlay restores the correct screen (e.g. Credits
+        /// opened from Pause returns to Pause, not MainMenu).
+        /// </summary>
+        private UIPanel m_PreviousStatePanel = UIPanel.MainMenu;
+
         #endregion
 
 
@@ -198,6 +192,12 @@ namespace PowerPulse.Core
             }
 
             ResolveSceneSystems();
+
+            // When the Game scene loads while the state is already Playing
+            // (e.g. after StartGame loads it), no StateChanged event fires.
+            // We listen to sceneLoaded to resolve and subscribe to the new
+            // scene systems.
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         private void OnDisable()
@@ -207,6 +207,7 @@ namespace PowerPulse.Core
                 m_GameManager.StateChanged -= HandleStateChanged;
             }
 
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             UnsubscribeSceneSystems();
         }
 
@@ -281,34 +282,6 @@ namespace PowerPulse.Core
         }
 
         /// <inheritdoc />
-        public void SetHudActiveColor(ColorId color)
-        {
-            if (m_ActiveColorImage == null || m_Palette == null)
-            {
-                return;
-            }
-
-            m_ActiveColorImage.color = m_Palette.GetColor(color);
-        }
-
-        /// <inheritdoc />
-        public void SetHudShield(bool active)
-        {
-            if (m_ShieldIcon != null) m_ShieldIcon.SetActive(active);
-        }
-
-        /// <inheritdoc />
-        public void SetHudBoost(bool active, float normalizedTimeLeft)
-        {
-            if (m_BoostIcon != null) m_BoostIcon.SetActive(active);
-
-            if (m_BoostFill != null)
-            {
-                m_BoostFill.fillAmount = Mathf.Clamp01(normalizedTimeLeft);
-            }
-        }
-
-        /// <inheritdoc />
         public void ApplySettings(SettingsData settings)
         {
             if (settings == null)
@@ -358,7 +331,13 @@ namespace PowerPulse.Core
 
         private void BindButtons()
         {
-            if (m_PauseButton != null) m_PauseButton.onClick.AddListener(() => GameFlow()?.Pause());
+            if (m_PauseButton != null)
+            {
+                // Prevent Automatic navigation from causing IndexOutOfRangeException
+                // in Selectable.OnDisable when the button is selected and disabled.
+                m_PauseButton.navigation = new Navigation { mode = Navigation.Mode.None };
+                m_PauseButton.onClick.AddListener(() => GameFlow()?.Pause());
+            }
             if (m_PlayButton != null) m_PlayButton.onClick.AddListener(StartGame);
             if (m_OptionsButton != null) m_OptionsButton.onClick.AddListener(ShowOptions);
             if (m_CreditsButton != null) m_CreditsButton.onClick.AddListener(() => ShowOverlay(UIPanel.Credits));
@@ -375,7 +354,7 @@ namespace PowerPulse.Core
             if (m_OptionsBackButton != null) m_OptionsBackButton.onClick.AddListener(ApplyAndCloseOptions);
             if (m_ControlsBackButton != null) m_ControlsBackButton.onClick.AddListener(ShowOptions);
 
-            if (m_CreditsSkipButton != null) m_CreditsSkipButton.onClick.AddListener(() => GameFlow()?.GoToMenu());
+            if (m_CreditsSkipButton != null) m_CreditsSkipButton.onClick.AddListener(CloseOverlay);
 
             BindOptionsInputs();
         }
@@ -410,8 +389,20 @@ namespace PowerPulse.Core
                     // Resolve first: the Game scene (and its ScoreManager/
                     // RunManager) may be a different instance from the last run.
                     ResolveSceneSystems();
-                    ShowPanel(UIPanel.HUD);
-                    SubscribeSceneSystems();
+
+                    // IMPORTANT: Do NOT show HUD panel here if the Game scene
+                    // hasn't loaded yet. The scene load is async (StartGame
+                    // calls LoadSceneAsync), so showing HUD now would activate
+                    // it while the Menu scene is still active, causing the
+                    // EventSystem to select the PauseButton, then crash when
+                    // the Menu unloads. OnSceneLoaded will show it at the right time.
+                    bool gameSceneLoaded = SceneManager.GetActiveScene().name == "Game";
+
+                    if (gameSceneLoaded)
+                    {
+                        ShowPanel(UIPanel.HUD);
+                        SubscribeSceneSystems();
+                    }
                     break;
                 case GameState.Paused:
                     UnsubscribeSceneSystems();
@@ -429,9 +420,9 @@ namespace PowerPulse.Core
             // Object == null is true for BOTH a missing object and a destroyed
             // one, so this is also what clears the dead references left behind
             // when the Game scene is unloaded.
-            m_ScoreManager = Object.FindObjectOfType<ScoreManager>();
-            m_RunManager = Object.FindObjectOfType<RunManager>();
-            m_GameFlow = Object.FindObjectOfType<GameFlow>();
+            m_ScoreManager = Object.FindAnyObjectByType<ScoreManager>();
+            m_RunManager = Object.FindAnyObjectByType<RunManager>();
+            m_GameFlow = Object.FindAnyObjectByType<GameFlow>();
         }
 
         private void SubscribeSceneSystems()
@@ -442,9 +433,6 @@ namespace PowerPulse.Core
             if (m_ScoreManager != null)
             {
                 m_ScoreManager.OnScoreChanged += SetHudScore;
-                m_ScoreManager.OnColorChanged += SetHudActiveColor;
-                m_ScoreManager.OnShieldChanged += SetHudShield;
-                m_ScoreManager.OnBoostChanged += HandleBoostChanged;
                 m_ScoreManager.OnPlayerDied += HandlePlayerDied;
                 m_ScoreManager.OnRecordBeaten += HandleRecordBeaten;
             }
@@ -460,9 +448,6 @@ namespace PowerPulse.Core
             if (m_ScoreManager != null)
             {
                 m_ScoreManager.OnScoreChanged -= SetHudScore;
-                m_ScoreManager.OnColorChanged -= SetHudActiveColor;
-                m_ScoreManager.OnShieldChanged -= SetHudShield;
-                m_ScoreManager.OnBoostChanged -= HandleBoostChanged;
                 m_ScoreManager.OnPlayerDied -= HandlePlayerDied;
                 m_ScoreManager.OnRecordBeaten -= HandleRecordBeaten;
             }
@@ -470,6 +455,31 @@ namespace PowerPulse.Core
             if (m_RunManager != null)
             {
                 m_RunManager.OnDistanceChanged -= SetHudDistance;
+            }
+        }
+
+        /// <summary>
+        /// Handles scene load: when the Game scene loads while the state is
+        /// already Playing, we need to resolve the new scene systems and
+        /// subscribe to their events, because no StateChanged event fires.
+        /// </summary>
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.name != "Game")
+                return;
+
+            if (m_GameManager == null || m_GameManager.CurrentState != GameState.Playing)
+                return;
+
+            ResolveSceneSystems();
+            ShowPanel(UIPanel.HUD);
+            SubscribeSceneSystems();
+
+            // Clear any stale EventSystem selection left over from the previous
+            // scene unload (prevents Selectable.OnDisable IndexOutOfRangeException).
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
             }
         }
 
@@ -484,8 +494,11 @@ namespace PowerPulse.Core
         /// </summary>
         private void ReadUIInput()
         {
+            bool pausePressed = false;
+
             if (m_PauseAction != null && m_PauseAction.WasPressedThisFrame())
             {
+                pausePressed = true;
                 if (m_GameManager != null && m_GameManager.CurrentState == GameState.Playing)
                 {
                     GameFlow()?.Pause();
@@ -497,7 +510,13 @@ namespace PowerPulse.Core
             }
 
             HandleConfirmInput();
-            HandleCancelInput();
+
+            // If Pause was pressed this frame, skip Cancel to avoid double-trigger
+            // (both Pause and Cancel are bound to Escape in the Input Actions).
+            if (!pausePressed)
+            {
+                HandleCancelInput();
+            }
         }
 
         private void HandleConfirmInput()
@@ -597,6 +616,16 @@ namespace PowerPulse.Core
         /// <param name="overlay">Overlay to show.</param>
         private void ShowOverlay(UIPanel overlay)
         {
+            // Remember the current state panel so we can restore it when closing
+            m_PreviousStatePanel = m_StatePanel;
+
+            // When opening an overlay from the Pause screen, hide the Pause panel
+            // so the overlay doesn't overlap confusingly.
+            if (m_StatePanel == UIPanel.Pause)
+            {
+                m_StatePanel = UIPanel.HUD; // Temporarily hide state panel
+            }
+
             m_OverlayPanel = overlay;
             ApplyPanelVisibility();
         }
@@ -607,6 +636,11 @@ namespace PowerPulse.Core
         private void CloseOverlay()
         {
             m_OverlayPanel = UIPanel.HUD;
+
+            // Restore the state panel that was active before the overlay opened
+            // (e.g. return to Pause if Credits was opened from Pause).
+            m_StatePanel = m_PreviousStatePanel;
+
             ApplyPanelVisibility();
         }
 
@@ -624,20 +658,6 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
-        /// TODO(Task 7 review): the ScoreManager publishes only OnBoostChanged
-        /// (colors), with no per-frame remaining-time event. BoostTimeLeft/
-        /// BoostDuration exist as properties, so the fill can be driven from
-        /// Update() while a boost is active instead of being pinned at 1. The
-        /// HUD icon state still comes from this event.
-        /// </summary>
-        /// <param name="colors">Colors covered by the boost (empty when it ended).</param>
-        private void HandleBoostChanged(System.Collections.Generic.List<ColorId> colors)
-        {
-            bool active = colors != null && colors.Count > 0;
-            SetHudBoost(active, active ? 1f : 0f);
-        }
-
-        /// <summary>
         /// TODO(Task 7 review): the new-record flag is unreliable here. ScoreManager.Die()
         /// updates m_BestScore BEFORE raising OnPlayerDied, so by the time this
         /// runs Score == BestScore even when the record was NOT beaten, making
@@ -645,7 +665,7 @@ namespace PowerPulse.Core
         /// "record beaten" event (or the value returned by Die/CloseRun) is
         /// needed to publish the label correctly.
         /// </summary>
-        private void HandlePlayerDied()
+        private void HandlePlayerDied(Obstacle _)
         {
             if (m_ScoreManager == null)
             {
@@ -679,7 +699,7 @@ namespace PowerPulse.Core
         {
             if (m_GameFlow == null)
             {
-                m_GameFlow = Object.FindObjectOfType<GameFlow>();
+                m_GameFlow = Object.FindAnyObjectByType<GameFlow>();
             }
 
             return m_GameFlow;

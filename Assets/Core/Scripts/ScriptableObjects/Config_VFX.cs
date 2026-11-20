@@ -71,8 +71,11 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("VFX spawned when an obstacle is collected.")]
         private GameObject m_CollectVfx;
 
-        [SerializeField, Tooltip("VFX spawned when the player dies.")]
+        [SerializeField, Tooltip("VFX spawned when the player dies (screen effects).")]
         private GameObject m_DeathVfx;
+
+        [SerializeField, Tooltip("VFX spawned when the player dies (explosion particles).")]
+        private GameObject m_DeathExplosionVfx;
 
         [SerializeField, Tooltip("VFX spawned when the player dashes.")]
         private GameObject m_DashVfx;
@@ -82,6 +85,13 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("Fallback VFX for power-ups whose catalog entry has no VfxPrefab assigned.")]
         private GameObject m_PowerUpVfx;
+
+        [Header("Slow Motion (Death)")]
+        [SerializeField, Tooltip("Duration of the slow-motion effect after death (seconds).")]
+        private float m_SlowMotionDuration = 2f;
+
+        [SerializeField, Tooltip("Curve controlling the time scale lerp from 1 to 0 during slow motion.")]
+        private AnimationCurve m_SlowMotionCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 
         [Header("Pooling")]
         [SerializeField, Tooltip("How many collect VFX instances are pre-created.")]
@@ -164,8 +174,11 @@ namespace PowerPulse.Core
         /// <summary>VFX spawned when an obstacle is collected.</summary>
         public GameObject CollectVfx => m_CollectVfx;
 
-        /// <summary>VFX spawned when the player dies.</summary>
+        /// <summary>VFX spawned when the player dies (screen effects).</summary>
         public GameObject DeathVfx => m_DeathVfx;
+
+        /// <summary>VFX spawned when the player dies (explosion particles).</summary>
+        public GameObject DeathExplosionVfx => m_DeathExplosionVfx;
 
         /// <summary>VFX spawned when the player dashes.</summary>
         public GameObject DashVfx => m_DashVfx;
@@ -175,6 +188,12 @@ namespace PowerPulse.Core
 
         /// <summary>Fallback VFX for power-ups.</summary>
         public GameObject PowerUpVfx => m_PowerUpVfx;
+
+        /// <summary>Duration of the slow-motion effect after death.</summary>
+        public float SlowMotionDuration => m_SlowMotionDuration;
+
+        /// <summary>Curve controlling the time scale lerp during slow motion.</summary>
+        public AnimationCurve SlowMotionCurve => m_SlowMotionCurve;
 
         /// <summary>How many collect VFX instances are pre-created.</summary>
         public int CollectPrewarm => m_CollectPrewarm;

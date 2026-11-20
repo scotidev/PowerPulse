@@ -215,7 +215,18 @@ namespace PowerPulse.Player
                 Dash(1);
             }
 
+            // Jump via Input Action (Space) OR direct key check (W / UpArrow)
+            bool jumpPressed = false;
             if (m_JumpAction != null && m_JumpAction.WasPressedThisFrame())
+            {
+                jumpPressed = true;
+            }
+            // Fallback for W and UpArrow keys (not bound in Input Actions asset)
+            if (!jumpPressed && (Keyboard.current.wKey.wasPressedThisFrame || Keyboard.current.upArrowKey.wasPressedThisFrame))
+            {
+                jumpPressed = true;
+            }
+            if (jumpPressed)
             {
                 Jump();
             }

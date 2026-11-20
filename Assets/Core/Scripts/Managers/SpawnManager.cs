@@ -794,7 +794,7 @@ namespace PowerPulse.Core
         /// <summary>
         /// Handles the player death: stops spawning new elements.
         /// </summary>
-        private void HandlePlayerDied()
+        private void HandlePlayerDied(Obstacle _)
         {
             m_IsSpawningEnabled = false;
         }

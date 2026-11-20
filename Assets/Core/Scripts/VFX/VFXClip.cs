@@ -159,6 +159,8 @@ namespace PowerPulse.VFX
             main.gravityModifier = m_Gravity;
             main.maxParticles = Mathf.Max(m_BurstCount * 2, 64);
             main.startColor = m_FixedColor * m_ColorEmission;
+            // CRITICAL: use unscaled time so particles animate even when Time.timeScale = 0
+            main.useUnscaledTime = true;
 
             ParticleSystem.EmissionModule emission = m_Particles.emission;
             emission.rateOverTime = 0f;

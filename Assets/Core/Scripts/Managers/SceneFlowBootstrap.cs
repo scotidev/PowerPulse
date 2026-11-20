@@ -17,10 +17,27 @@ namespace PowerPulse.Core
         /// <summary>Name of the game scene, as set in Build Settings.</summary>
         private const string c_GameSceneName = "Game";
 
+        private static bool s_Hooked;
+
+        /// <summary>
+        /// Called automatically by Unity after the first scene loads.
+        /// We hook SceneManager.sceneLoaded here so we catch every subsequent load.
+        /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        public static void Initialize()
+        private static void Initialize()
         {
-            string sceneName = SceneManager.GetActiveScene().name;
+            if (s_Hooked) return;
+            s_Hooked = true;
+
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Also handle the first scene (already loaded when this runs).
+            OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
+        }
+
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            string sceneName = scene.name;
 
             if (sceneName != c_GameSceneName && sceneName != c_MenuSceneName)
             {
@@ -30,7 +47,7 @@ namespace PowerPulse.Core
             // Recreated on every load of a supported scene: the previous one was
             // destroyed with its scene, so a return to the menu and a new run
             // still get a working flow.
-            if (Object.FindObjectOfType<GameFlow>() != null)
+            if (Object.FindAnyObjectByType<GameFlow>() != null)
             {
                 return;
             }

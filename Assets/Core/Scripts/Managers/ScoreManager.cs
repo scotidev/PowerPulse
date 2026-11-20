@@ -63,6 +63,9 @@ namespace PowerPulse.Core
         private int m_Score;
         private int m_BestScore;
 
+        /// <summary>The obstacle that caused the player's death (for cinematic death).</summary>
+        private Obstacle m_KillingObstacle;
+
         #endregion
 
 
@@ -124,8 +127,8 @@ namespace PowerPulse.Core
         /// <summary>Raised when a new run starts, so the scene systems reset.</summary>
         public event Action OnRunReset;
 
-        /// <summary>Raised when the player dies.</summary>
-        public event Action OnPlayerDied;
+        /// <summary>Raised when the player dies, with the killing obstacle.</summary>
+        public event Action<Obstacle> OnPlayerDied;
 
         /// <summary>Raised when the record is beaten, with the new record.</summary>
         public event Action<int> OnRecordBeaten;
@@ -139,11 +142,30 @@ namespace PowerPulse.Core
         {
             ActiveColor = m_StartingColor;
             ResolveRunSystems();
+
+            // Subscribe to RunManager's run start to reset score for new runs
+            if (m_RunManager != null)
+            {
+                m_RunManager.OnRunStarted += OnRunStarted;
+            }
         }
 
         private void OnEnable()
         {
             LoadBestScore();
+            Reset();
+        }
+
+        private void OnDisable()
+        {
+            if (m_RunManager != null)
+            {
+                m_RunManager.OnRunStarted -= OnRunStarted;
+            }
+        }
+
+        private void OnRunStarted()
+        {
             Reset();
         }
 
@@ -271,6 +293,8 @@ namespace PowerPulse.Core
                 return;
             }
 
+            // Store the killing obstacle for cinematic death
+            m_KillingObstacle = obstacle;
             Die();
         }
 
@@ -461,7 +485,7 @@ namespace PowerPulse.Core
             }
 
             SaveBestScore();
-            OnPlayerDied?.Invoke();
+            OnPlayerDied?.Invoke(m_KillingObstacle);
 
             Debug.Log($"[ScoreManager] Run ended. Score: {m_Score} | Best: {m_BestScore}");
         }

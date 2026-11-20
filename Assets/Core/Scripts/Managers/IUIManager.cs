@@ -27,19 +27,6 @@ namespace PowerPulse.Core
         /// <param name="distance">Distance in meters.</param>
         void SetHudDistance(float distance);
 
-        /// <summary>Updates the HUD active color indicator.</summary>
-        /// <param name="color">Active color.</param>
-        void SetHudActiveColor(ColorId color);
-
-        /// <summary>Shows or hides the HUD shield indicator.</summary>
-        /// <param name="active">Whether the shield is active.</param>
-        void SetHudShield(bool active);
-
-        /// <summary>Shows or hides the HUD boost indicator and its remaining time.</summary>
-        /// <param name="active">Whether a boost is active.</param>
-        /// <param name="normalizedTimeLeft">Remaining boost time normalized between 0 and 1.</param>
-        void SetHudBoost(bool active, float normalizedTimeLeft);
-
         /// <summary>Fills the options panel from the persisted settings.</summary>
         /// <param name="settings">Settings to display.</param>
         void ApplySettings(SettingsData settings);

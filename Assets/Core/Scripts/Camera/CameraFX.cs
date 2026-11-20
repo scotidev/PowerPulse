@@ -5,13 +5,14 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 using PowerPulse.Core;
+using PowerPulse.Obstacles;
 using PowerPulse.Player;
 using PowerPulse.VFX;
 
 namespace PowerPulse.CameraSystem
 {
     /// <summary>
-    /// Owns every juice effect of the run: camera shake, FOV punch, full-screen
+    /// Owns every juice effectt of the run: camera shake, FOV punch, full-screen
     /// flash, temporary Bloom/Chromatic Aberration adjustments and the pooled VFX
     /// spawned on collection, death, dash, portal and power-up events. It lives on
     /// the Main Camera, right after the <see cref="CameraFollow"/>, and never
@@ -190,7 +191,10 @@ namespace PowerPulse.CameraSystem
             Color color = GetPaletteColor(m_ScoreManager != null ? m_ScoreManager.ActiveColor : ColorId.Red);
             Vector3 position = m_Player != null ? m_Player.position : transform.position;
 
+            // Screen-space death effects (original DeathVfx)
             PlayVfx(m_Config.DeathVfx, position, color, m_Config.DeathPrewarm, m_Config.VfxScale);
+            // Explosion particles at player position
+            PlayVfx(m_Config.DeathExplosionVfx, position, color, m_Config.DeathPrewarm, m_Config.VfxScale);
             Shake(m_Config.DeathShakeAmplitude, m_Config.DeathShakeDuration, m_Config.DeathShakeFrequency);
             Flash(m_Config.FlashColor, m_Config.FlashAlpha, m_Config.DeathFlashDuration);
 
@@ -239,7 +243,7 @@ namespace PowerPulse.CameraSystem
             PlayCollect(GetPaletteColor(color), position);
         }
 
-        private void HandlePlayerDied()
+        private void HandlePlayerDied(Obstacle killingObstacle)
         {
             PlayDeath();
         }
@@ -405,6 +409,7 @@ namespace PowerPulse.CameraSystem
 
             Prewarm(m_Config.CollectVfx, m_Config.CollectPrewarm);
             Prewarm(m_Config.DeathVfx, m_Config.DeathPrewarm);
+            Prewarm(m_Config.DeathExplosionVfx, m_Config.DeathPrewarm);
             Prewarm(m_Config.DashVfx, m_Config.DashPrewarm);
             Prewarm(m_Config.PortalVfx, m_Config.PortalPrewarm);
             Prewarm(m_Config.PowerUpVfx, m_Config.PowerUpPrewarm);

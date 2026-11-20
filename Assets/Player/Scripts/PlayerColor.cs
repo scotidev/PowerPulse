@@ -360,7 +360,8 @@ namespace PowerPulse.Player
         /// Starts the death animation when the ScoreManager decides the player
         /// died. The run is only closed after the animation finishes.
         /// </summary>
-        private void HandlePlayerDied()
+        /// <param name="killingObstacle">The obstacle that caused the death.</param>
+        private void HandlePlayerDied(Obstacle killingObstacle)
         {
             if (m_Death == null)
             {
@@ -368,7 +369,7 @@ namespace PowerPulse.Player
                 return;
             }
 
-            m_Death.Die();
+            m_Death.Die(killingObstacle);
         }
 
         /// <summary>

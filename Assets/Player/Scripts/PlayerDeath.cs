@@ -3,13 +3,19 @@ using System.Collections;
 using UnityEngine;
 using PowerPulse.Core;
 using PowerPulse.Obstacles;
+using PowerPulse.CameraSystem;
 
 namespace PowerPulse.Player
 {
     /// <summary>
-    /// Owns the cinematic death sequence: slow-motion sphere expansion,
-    /// explosive particle burst, then full freeze. The killing obstacle
-    /// is highlighted so it doesn't clip inside the expanding sphere.
+    /// Owns the cinematic death sequence in 5 phases:
+    /// 0. Killer Obstacle Explodes (immediate, unscaled time)
+    /// 1. Sphere Expansion + Slow Motion (unscaled time)
+    /// 2. Sphere Explodes -> spawns DeathVfx particles (via CameraFX.PlayDeath event)
+    /// 3. Burst Phase: particles fly in slow motion (unscaled time)
+    /// 4. Freeze Phase: timeScale lerps to 0 (unscaled time)
+    /// Then closes the run (GameOver state).
+    /// All timing and curves driven by Config_VFX asset.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class PlayerDeath : MonoBehaviour
@@ -23,32 +29,15 @@ namespace PowerPulse.Player
         [SerializeField, Tooltip("Trail renderer disabled during death.")]
         private TrailRenderer m_Trail;
 
-        [SerializeField, Tooltip("VFX settings asset for slow-motion curve.")]
+        [SerializeField, Tooltip("VFX settings asset for all death sequence parameters.")]
         private Config_VFX m_VfxConfig;
 
         [Header("Expansion Visual")]
         [SerializeField, Tooltip("Material used for the expanding sphere (emissive).")]
         private Material m_ExpansionMaterial;
 
-        [SerializeField, Tooltip("Maximum scale multiplier during expansion (default 4x).")]
-        private float m_MaxExpansionScale = 4f;
-
-        [SerializeField, Tooltip("Duration of the expansion phase (seconds, unscaled time).")]
-        private float m_ExpansionDuration = 1.5f;
-
-        [Header("Burst (Explosion)")]
-        [SerializeField, Tooltip("Duration of the particle burst phase (seconds, unscaled time).")]
-        private float m_BurstDuration = 1f;
-
-        [SerializeField, Tooltip("Duration of the final freeze to timeScale 0 (seconds, unscaled time).")]
-        private float m_FreezeDuration = 0.5f;
-
         [Header("Killing Obstacle Reaction")]
-        [SerializeField, Tooltip("How much to boost the killing obstacle's emission.")]
-        private float m_KillerEmissionBoost = 10f;
-
-        [SerializeField, Tooltip("Scale multiplier for the killing obstacle during expansion.")]
-        private float m_KillerScaleBoost = 1.5f;
+        // Emission boost and scale now read from Config_VFX (KillerEmissionBoost, KillerExplosionScale)
 
         #endregion
 
@@ -77,6 +66,19 @@ namespace PowerPulse.Player
         private Material m_KillerMaterial;
         private Color m_KillerOriginalEmission;
         private Vector3 m_KillerOriginalScale;
+
+        // Phase timing (cached from Config_VFX)
+        private float m_KillerExplosionDelay;
+        private float m_ExpansionDuration;
+        private float m_BurstDuration;
+        private float m_FreezeDuration;
+        private float m_MaxExpansionScale;
+        private AnimationCurve m_ExpansionCurve;
+        private AnimationCurve m_SlowMotionCurve;
+
+        // Progress reporting
+        private event Action<float> OnDeathProgress;
+        private bool m_GameOverTriggered;
 
         #endregion
 
@@ -108,11 +110,21 @@ namespace PowerPulse.Player
             {
                 m_VfxConfig = Resources.Load<Config_VFX>("VFXSettings");
             }
+
+            CacheConfigValues();
         }
 
-        private void Update()
+        private void OnEnable()
         {
-            // Death sequence runs via coroutine
+            // Subscribe to death progress for external systems (UIManager, CameraFX)
+            if (m_VfxConfig != null)
+            {
+                // External listeners can subscribe via PlayerDeath.OnDeathProgress
+            }
+        }
+
+        private void OnDisable()
+        {
         }
 
         #endregion
@@ -132,6 +144,7 @@ namespace PowerPulse.Player
             }
 
             m_IsDying = true;
+            m_GameOverTriggered = false;
             m_KillingObstacle = killingObstacle;
 
             // Prepare killing obstacle reaction
@@ -154,6 +167,15 @@ namespace PowerPulse.Player
         }
 
         /// <summary>
+        /// Allows external systems (UIManager) to subscribe to death sequence progress (0-1).
+        /// </summary>
+        public event Action<float> DeathProgress
+        {
+            add => OnDeathProgress += value;
+            remove => OnDeathProgress -= value;
+        }
+
+        /// <summary>
         /// Restores the player for a new run.
         /// </summary>
         public void ResetPlayer()
@@ -163,6 +185,7 @@ namespace PowerPulse.Player
             Time.fixedDeltaTime = 0.02f;
 
             m_IsDying = false;
+            m_GameOverTriggered = false;
 
             // Restore killing obstacle if it exists
             RestoreKillingObstacle();
@@ -215,6 +238,19 @@ namespace PowerPulse.Player
 
         #region PRIVATE METHODS
 
+        private void CacheConfigValues()
+        {
+            if (m_VfxConfig == null) return;
+
+            m_KillerExplosionDelay = m_VfxConfig.KillerExplosionDelay;
+            m_ExpansionDuration = m_VfxConfig.ExpansionDuration;
+            m_BurstDuration = m_VfxConfig.BurstDuration;
+            m_FreezeDuration = m_VfxConfig.FreezeDuration;
+            m_MaxExpansionScale = m_VfxConfig.MaxExpansionScale;
+            m_ExpansionCurve = m_VfxConfig.ExpansionCurve;
+            m_SlowMotionCurve = m_VfxConfig.SlowMotionCurve;
+        }
+
         private void DisablePlayerSystems()
         {
             if (m_Controller != null) m_Controller.enabled = false;
@@ -248,11 +284,11 @@ namespace PowerPulse.Player
             {
                 m_KillerOriginalEmission = m_KillerMaterial.GetColor("_EmissionColor");
                 // Boost emission dramatically
-                m_KillerMaterial.SetColor("_EmissionColor", m_KillerOriginalEmission * m_KillerEmissionBoost);
+                m_KillerMaterial.SetColor("_EmissionColor", m_KillerOriginalEmission * m_VfxConfig.KillerEmissionBoost);
             }
 
-            // Scale up the killing obstacle slightly so it wraps around the expanding sphere
-            m_KillingObstacle.transform.localScale = m_KillerOriginalScale * m_KillerScaleBoost;
+            // Scale up the killing obstacle slightly for its explosion
+            m_KillingObstacle.transform.localScale = m_KillerOriginalScale * m_VfxConfig.KillerExplosionScale;
 
             // Make it kinematic so it moves with the track but doesn't physics-interact
             Rigidbody killerRb = m_KillingObstacle.GetComponent<Rigidbody>();
@@ -275,24 +311,31 @@ namespace PowerPulse.Player
         }
 
         /// <summary>
-        /// Cinematic death sequence in 3 phases:
-        /// 1. Expansion (sphere grows, killer obstacle wraps, slow motion)
-        /// 2. Burst (particles explode AFTER expansion, continue slow motion)
-        /// 3. Freeze (time scale lerps to 0)
+        /// Cinematic death sequence in 5 phases:
+        /// 0. Killer Explosion (immediate)
+        /// 1. Sphere Expansion + Slow Motion
+        /// 2. Sphere Explosion (trigger CameraFX.PlayDeath)
+        /// 3. Burst Phase (particles fly in slow motion)
+        /// 4. Freeze Phase (timeScale lerps to 0)
         /// </summary>
         private IEnumerator CinematicDeathRoutine()
         {
-            // --- Phase 1: EXPANSION (no particles yet) ---
+            // ===== PHASE 0: KILLER OBSTACLE EXPLODES =====
+            yield return StartCoroutine(KillerExplosionPhase());
+
+            // ===== PHASE 1: SPHERE EXPANSION + SLOW MOTION =====
             yield return StartCoroutine(ExpansionPhase());
 
-            // --- Phase 2: BURST (particles spawn AFTER expansion) ---
-            TriggerExplosionBurst();
+            // ===== PHASE 2: SPHERE EXPLODES =====
+            TriggerSphereExplosion();
+
+            // ===== PHASE 3: BURST PHASE (particles fly in slow motion) =====
             yield return StartCoroutine(BurstPhase());
 
-            // --- Phase 3: FREEZE (time scale lerps to 0) ---
+            // ===== PHASE 4: FREEZE PHASE (timeScale lerps to 0) =====
             yield return StartCoroutine(FreezePhase());
 
-            // End: close run
+            // End: close run (triggers GameOver state)
             if (m_ScoreManager != null)
             {
                 m_ScoreManager.CloseRun();
@@ -301,13 +344,47 @@ namespace PowerPulse.Player
             Debug.Log("[PlayerDeath] Cinematic death finished. Run closed.");
         }
 
+        private IEnumerator KillerExplosionPhase()
+        {
+            // Spawn obstacle explosion VFX at obstacle position via CameraFX
+            if (m_KillingObstacle != null && m_VfxConfig != null && m_VfxConfig.DeathObstacleExplosionVfx != null)
+            {
+                CameraFX cameraFX = FindFirstObjectByType<CameraFX>();
+                if (cameraFX != null)
+                {
+                    Color killerColor = GetKillerColor();
+                    cameraFX.PlayVfx(
+                        m_VfxConfig.DeathObstacleExplosionVfx,
+                        m_KillingObstacle.transform.position,
+                        killerColor,
+                        m_VfxConfig.DeathPrewarm,
+                        m_VfxConfig.KillerExplosionScale,
+                        false // obstacle explosion uses scaled time (happens before slow motion)
+                    );
+                }
+            }
+
+            // Wait tiny delay for explosion to be visible
+            yield return new WaitForSecondsRealtime(m_KillerExplosionDelay);
+
+            // Hide killer obstacle (it "exploded")
+            HideKillerObstacle();
+        }
+
+        private void HideKillerObstacle()
+        {
+            if (m_KillerRenderer != null)
+            {
+                m_KillerRenderer.enabled = false;
+            }
+        }
+
         private IEnumerator ExpansionPhase()
         {
             float elapsed = 0f;
             float duration = m_ExpansionDuration;
-            AnimationCurve curve = GetSlowMotionCurve();
 
-            // Switch to expansion material if provided
+            // Swap to expansion material if provided
             if (m_ExpansionMaterial != null)
             {
                 for (int i = 0; i < m_Renderers.Length; i++)
@@ -320,41 +397,38 @@ namespace PowerPulse.Player
             }
 
             Vector3 startScale = transform.localScale;
-            Vector3 targetScale = Vector3.one * m_MaxExpansionScale;
+            Vector3 targetScale = Vector3.one * m_MaxExpansionScale * c_RestScale;
+
+            // Phase 1 weight in total sequence (expansion is roughly 30% of total)
+            const float phaseWeight = 0.3f;
 
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-                
-                // Sphere expansion (ease out for dramatic feel)
-                float expansionT = 1f - Mathf.Pow(1f - t, 3f); // EaseOutCubic
+
+                // Sphere expansion via curve
+                float expansionT = m_ExpansionCurve.Evaluate(t);
                 transform.localScale = Vector3.Lerp(startScale, targetScale, expansionT);
 
-                // Killer obstacle scales with sphere (wraps around)
-                if (m_KillingObstacle != null)
-                {
-                    m_KillingObstacle.transform.localScale = Vector3.Lerp(
-                        m_KillerOriginalScale * m_KillerScaleBoost,
-                        m_KillerOriginalScale * m_MaxExpansionScale * 0.8f,
-                        expansionT);
-                }
-
-                // Global slow motion: timeScale follows curve
-                float timeScale = curve.Evaluate(t);
+                // Global slow motion: timeScale follows SlowMotionCurve based on total sequence progress
+                float sequenceProgress = Mathf.Lerp(0f, phaseWeight, t);
+                float timeScale = m_SlowMotionCurve.Evaluate(sequenceProgress);
                 Time.timeScale = timeScale;
                 Time.fixedDeltaTime = 0.02f * timeScale;
+
+                // Report progress for Game Over trigger
+                ReportDeathProgress(sequenceProgress);
 
                 yield return null;
             }
 
             // Ensure exact end state
             transform.localScale = targetScale;
-            Time.timeScale = curve.Evaluate(1f);
-            Time.fixedDeltaTime = 0.02f * Time.timeScale;
+            ReportDeathProgress(phaseWeight);
         }
 
-        private void TriggerExplosionBurst()
+        private void TriggerSphereExplosion()
         {
             // Hide the sphere mesh
             for (int i = 0; i < m_Renderers.Length; i++)
@@ -365,37 +439,42 @@ namespace PowerPulse.Player
                 }
             }
 
-            // Hide killer obstacle
-            if (m_KillerRenderer != null)
+            // Trigger CameraFX.PlayDeath to spawn the main DeathVfx particles
+            // These particles will use unscaled time and persist on Game Over if configured
+            CameraFX cameraFX = FindFirstObjectByType<CameraFX>();
+            if (cameraFX != null && m_ScoreManager != null)
             {
-                m_KillerRenderer.enabled = false;
+                Color deathColor = cameraFX.GetPaletteColor(m_ScoreManager.ActiveColor);
+                Vector3 deathPosition = transform.position;
+                cameraFX.PlayDeath(deathPosition, deathColor);
             }
-
-            // The CameraFX.PlayDeath() will be called via OnPlayerDied event
-            // which spawns the DeathExplosionVfx particles at our position.
-            // Those particles will also be in slow motion because timeScale < 1.
         }
 
         private IEnumerator BurstPhase()
         {
             float elapsed = 0f;
             float duration = m_BurstDuration;
-            AnimationCurve curve = GetSlowMotionCurve();
+
+            // Phase 2 weight (burst is roughly 40% of total, starting at 0.3)
+            const float phaseStartProgress = 0.3f;
+            const float phaseWeight = 0.4f;
 
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
 
-                // Continue slow motion curve (progress through total sequence)
-                float totalProgress = Mathf.Clamp01(
-                    (m_ExpansionDuration + elapsed) / (m_ExpansionDuration + m_BurstDuration + m_FreezeDuration));
-                float timeScale = curve.Evaluate(totalProgress);
+                // Continue slow motion curve through total sequence
+                float sequenceProgress = Mathf.Lerp(phaseStartProgress, phaseStartProgress + phaseWeight, t);
+                float timeScale = m_SlowMotionCurve.Evaluate(sequenceProgress);
                 Time.timeScale = timeScale;
                 Time.fixedDeltaTime = 0.02f * timeScale;
 
+                ReportDeathProgress(sequenceProgress);
                 yield return null;
             }
+
+            ReportDeathProgress(phaseStartProgress + phaseWeight);
         }
 
         private IEnumerator FreezePhase()
@@ -404,16 +483,20 @@ namespace PowerPulse.Player
             float duration = m_FreezeDuration;
 
             float startTimeScale = Time.timeScale;
+            const float phaseStartProgress = 0.7f; // after expansion (0.3) + burst (0.4)
 
             while (elapsed < duration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-                
+
                 // Lerp from current timeScale to 0
                 float timeScale = Mathf.Lerp(startTimeScale, 0f, t);
                 Time.timeScale = timeScale;
                 Time.fixedDeltaTime = 0.02f * timeScale;
+
+                float sequenceProgress = Mathf.Lerp(phaseStartProgress, 1f, t);
+                ReportDeathProgress(sequenceProgress);
 
                 yield return null;
             }
@@ -421,15 +504,37 @@ namespace PowerPulse.Player
             // Fully pause
             Time.timeScale = 0f;
             Time.fixedDeltaTime = 0f;
+            ReportDeathProgress(1f);
         }
 
-        private AnimationCurve GetSlowMotionCurve()
+        private void ReportDeathProgress(float progress)
         {
-            if (m_VfxConfig != null && m_VfxConfig.SlowMotionCurve != null && m_VfxConfig.SlowMotionCurve.length > 0)
+            OnDeathProgress?.Invoke(progress);
+
+            // Trigger Game Over panel at configured progress
+            if (!m_GameOverTriggered && m_VfxConfig != null && progress >= m_VfxConfig.GameOverTriggerProgress)
             {
-                return m_VfxConfig.SlowMotionCurve;
+                m_GameOverTriggered = true;
+                // The UIManager listens to this and shows Game Over panel
+                Debug.Log($"[PlayerDeath] Game Over trigger at progress {progress:0.00}");
             }
-            return AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
+        }
+
+        private Color GetKillerColor()
+        {
+            if (m_KillingObstacle != null)
+            {
+                return m_KillingObstacle.GetComponent<Obstacle>()?.ActiveColor switch
+                {
+                    ColorId.Red => Color.red,
+                    ColorId.Pink => Color.magenta,
+                    ColorId.Blue => Color.blue,
+                    ColorId.Cyan => Color.cyan,
+                    ColorId.Purple => new Color(0.5f, 0f, 1f),
+                    _ => Color.white
+                };
+            }
+            return Color.white;
         }
 
         #endregion

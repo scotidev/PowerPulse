@@ -16,6 +16,10 @@ namespace PowerPulse.VFX
         [SerializeField, Tooltip("How long the effect stays visible before the CameraFX recycles it (seconds).")]
         private float m_Duration = 0.6f;
 
+        [Header("Time")]
+        [SerializeField, Tooltip("If true, the particle system simulates on unscaled time (continues when Time.timeScale = 0). Used for death VFX that must persist on Game Over.")]
+        private bool m_UseUnscaledTime = false;
+
         [Header("Emission")]
         [SerializeField, Tooltip("Number of particles emitted in the burst.")]
         private int m_BurstCount = 24;
@@ -73,6 +77,9 @@ namespace PowerPulse.VFX
 
         /// <summary>How long the effect stays visible before being recycled.</summary>
         public float Duration => m_Duration;
+
+        /// <summary>Whether this VFX uses unscaled time for simulation.</summary>
+        public bool UseUnscaledTime => m_UseUnscaledTime;
 
         #endregion
 
@@ -159,8 +166,8 @@ namespace PowerPulse.VFX
             main.gravityModifier = m_Gravity;
             main.maxParticles = Mathf.Max(m_BurstCount * 2, 64);
             main.startColor = m_FixedColor * m_ColorEmission;
-            // CRITICAL: use unscaled time so particles animate even when Time.timeScale = 0
-            main.useUnscaledTime = true;
+            // CRITICAL: use unscaled time when configured so particles animate even when Time.timeScale = 0
+            main.useUnscaledTime = m_UseUnscaledTime;
 
             ParticleSystem.EmissionModule emission = m_Particles.emission;
             emission.rateOverTime = 0f;

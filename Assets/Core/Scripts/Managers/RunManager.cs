@@ -153,6 +153,7 @@ namespace PowerPulse.Core
 
         /// <summary>
         /// Restores a paused run without resetting the progression.
+        /// Does NOT invoke OnRunStarted — that event is only for NEW runs (StartRun).
         /// </summary>
         public void RestoreRun()
         {
@@ -162,7 +163,7 @@ namespace PowerPulse.Core
             }
 
             IsRunning = true;
-            OnRunStarted?.Invoke();
+            // OnRunStarted NÃO é invocado aqui: evita que ScoreManager.Reset() limpe a run.
         }
 
         /// <summary>

@@ -7,6 +7,7 @@ using UnityEngine.UI;
 using TMPro;
 using PowerPulse.Core;
 using PowerPulse.Obstacles;
+using PowerPulse.Player;
 using Object = UnityEngine.Object;
 
 namespace PowerPulse.Core
@@ -138,6 +139,7 @@ namespace PowerPulse.Core
         private ScoreManager m_ScoreManager;
         private RunManager m_RunManager;
         private GameFlow m_GameFlow;
+        private PlayerDeath m_PlayerDeath;
 
         private InputAction m_PauseAction;
         private InputAction m_ConfirmAction;
@@ -423,6 +425,7 @@ namespace PowerPulse.Core
             m_ScoreManager = Object.FindAnyObjectByType<ScoreManager>();
             m_RunManager = Object.FindAnyObjectByType<RunManager>();
             m_GameFlow = Object.FindAnyObjectByType<GameFlow>();
+            m_PlayerDeath = Object.FindAnyObjectByType<PlayerDeath>();
         }
 
         private void SubscribeSceneSystems()
@@ -441,6 +444,11 @@ namespace PowerPulse.Core
             {
                 m_RunManager.OnDistanceChanged += SetHudDistance;
             }
+
+            if (m_PlayerDeath != null)
+            {
+                m_PlayerDeath.DeathProgress += HandleDeathProgress;
+            }
         }
 
         private void UnsubscribeSceneSystems()
@@ -455,6 +463,11 @@ namespace PowerPulse.Core
             if (m_RunManager != null)
             {
                 m_RunManager.OnDistanceChanged -= SetHudDistance;
+            }
+
+            if (m_PlayerDeath != null)
+            {
+                m_PlayerDeath.DeathProgress -= HandleDeathProgress;
             }
         }
 
@@ -658,21 +671,50 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
-        /// TODO(Task 7 review): the new-record flag is unreliable here. ScoreManager.Die()
-        /// updates m_BestScore BEFORE raising OnPlayerDied, so by the time this
-        /// runs Score == BestScore even when the record was NOT beaten, making
-        /// the condition below true for every run with points. A dedicated
-        /// "record beaten" event (or the value returned by Die/CloseRun) is
-        /// needed to publish the label correctly.
+        /// Handles player death: does NOT show Game Over immediately.
+        /// Game Over is shown via HandleDeathProgress when the death sequence
+        /// reaches the configured trigger progress (default 80%).
         /// </summary>
         private void HandlePlayerDied(Obstacle _)
         {
-            if (m_ScoreManager == null)
+            // Death sequence started - Game Over will be shown at configured progress
+            // Reset the new record flag for the next run
+            m_IsNewRecord = false;
+        }
+
+        /// <summary>
+        /// Called during the death cinematic sequence. Shows Game Over panel
+        /// when the sequence reaches the configured trigger progress.
+        /// </summary>
+        /// <param name="progress">Death sequence progress (0-1).</param>
+        private void HandleDeathProgress(float progress)
+        {
+            Config_VFX config = null;
+            if (m_PlayerDeath != null)
             {
-                return;
+                // Get config from PlayerDeath's cached values or find it
+                config = Resources.Load<Config_VFX>("VFXSettings");
+            }
+            else
+            {
+                config = Resources.Load<Config_VFX>("VFXSettings");
             }
 
-            ShowGameOver(m_ScoreManager.Score, m_ScoreManager.BestScore, m_IsNewRecord);
+            float triggerProgress = config != null ? config.GameOverTriggerProgress : 0.8f;
+
+            if (progress >= triggerProgress)
+            {
+                // Unsubscribe to avoid multiple triggers
+                if (m_PlayerDeath != null)
+                {
+                    m_PlayerDeath.DeathProgress -= HandleDeathProgress;
+                }
+
+                if (m_ScoreManager != null)
+                {
+                    ShowGameOver(m_ScoreManager.Score, m_ScoreManager.BestScore, m_IsNewRecord);
+                }
+            }
         }
 
         /// <summary>

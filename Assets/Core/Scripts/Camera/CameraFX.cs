@@ -69,6 +69,7 @@ namespace PowerPulse.CameraSystem
             public GameObject Prefab;
             public GameObject Instance;
             public float Timer;
+            public bool UseUnscaledTime;
         }
 
         #endregion
@@ -181,20 +182,16 @@ namespace PowerPulse.CameraSystem
         /// Triggers the death feedback: VFX, strong shake, flash and a temporary
         /// Chromatic Aberration boost.
         /// </summary>
-        public void PlayDeath()
+        public void PlayDeath(Vector3 position, Color color)
         {
             if (m_Config == null)
             {
                 return;
             }
 
-            Color color = GetPaletteColor(m_ScoreManager != null ? m_ScoreManager.ActiveColor : ColorId.Red);
-            Vector3 position = m_Player != null ? m_Player.position : transform.position;
-
-            // Screen-space death effects (original DeathVfx)
-            PlayVfx(m_Config.DeathVfx, position, color, m_Config.DeathPrewarm, m_Config.VfxScale);
-            // Explosion particles at player position
-            PlayVfx(m_Config.DeathExplosionVfx, position, color, m_Config.DeathPrewarm, m_Config.VfxScale);
+            // Single death VFX (particles + screen fx combined in one prefab)
+            // useUnscaledTime = true so particles persist frozen at timeScale=0 if config says so
+            PlayVfx(m_Config.DeathVfx, position, color, m_Config.DeathPrewarm, m_Config.VfxScale, m_Config.DeathVfxPersistOnGameOver);
             Shake(m_Config.DeathShakeAmplitude, m_Config.DeathShakeDuration, m_Config.DeathShakeFrequency);
             Flash(m_Config.FlashColor, m_Config.FlashAlpha, m_Config.DeathFlashDuration);
 
@@ -245,7 +242,14 @@ namespace PowerPulse.CameraSystem
 
         private void HandlePlayerDied(Obstacle killingObstacle)
         {
-            PlayDeath();
+            if (m_ScoreManager == null)
+            {
+                PlayDeath(transform.position, Color.white);
+                return;
+            }
+            Color color = GetPaletteColor(m_ScoreManager.ActiveColor);
+            Vector3 position = m_Player != null ? m_Player.position : transform.position;
+            PlayDeath(position, color);
         }
 
         private void HandleBoostChanged(List<ColorId> colors)
@@ -409,7 +413,7 @@ namespace PowerPulse.CameraSystem
 
             Prewarm(m_Config.CollectVfx, m_Config.CollectPrewarm);
             Prewarm(m_Config.DeathVfx, m_Config.DeathPrewarm);
-            Prewarm(m_Config.DeathExplosionVfx, m_Config.DeathPrewarm);
+            Prewarm(m_Config.DeathObstacleExplosionVfx, m_Config.DeathPrewarm);
             Prewarm(m_Config.DashVfx, m_Config.DashPrewarm);
             Prewarm(m_Config.PortalVfx, m_Config.PortalPrewarm);
             Prewarm(m_Config.PowerUpVfx, m_Config.PowerUpPrewarm);
@@ -682,14 +686,15 @@ namespace PowerPulse.CameraSystem
 
         /// <summary>
         /// Spawns a VFX prefab at the given position, tints it and schedules its
-        /// return to the pool.
+        /// return to the pool. Public so other systems (e.g. PlayerDeath) can trigger VFX.
         /// </summary>
         /// <param name="prefab">VFX prefab.</param>
         /// <param name="position">World position.</param>
         /// <param name="color">Color used to tint the VFX.</param>
         /// <param name="prewarm">How many instances the pool keeps ready.</param>
         /// <param name="scale">Uniform scale of the instance.</param>
-        private void PlayVfx(GameObject prefab, Vector3 position, Color color, int prewarm, float scale)
+        /// <param name="useUnscaledTime">If true, timer advances on unscaled time (for death VFX that persist at timeScale=0).</param>
+        public void PlayVfx(GameObject prefab, Vector3 position, Color color, int prewarm, float scale, bool useUnscaledTime = false)
         {
             if (prefab == null || m_Pool == null)
             {
@@ -715,22 +720,32 @@ namespace PowerPulse.CameraSystem
             }
 
             float duration = clip != null ? clip.Duration : m_Config.DefaultVfxDuration;
-            m_ActiveVfx.Add(new ActiveVfx { Prefab = prefab, Instance = instance, Timer = duration });
+            bool vfxUsesUnscaledTime = useUnscaledTime || (clip != null && clip.UseUnscaledTime);
+            m_ActiveVfx.Add(new ActiveVfx { Prefab = prefab, Instance = instance, Timer = duration, UseUnscaledTime = vfxUsesUnscaledTime });
         }
 
         /// <summary>
         /// Advances every active VFX and recycles the ones that finished.
         /// </summary>
-        /// <param name="deltaTime">Frame delta time.</param>
+        /// <param name="deltaTime">Frame delta time (scaled).</param>
         private void TickVfx(float deltaTime)
         {
+            float unscaledDelta = Time.unscaledDeltaTime;
+            bool persistDeathVfx = m_Config != null && m_Config.DeathVfxPersistOnGameOver;
+
             for (int i = m_ActiveVfx.Count - 1; i >= 0; i--)
             {
                 ActiveVfx vfx = m_ActiveVfx[i];
-                vfx.Timer -= deltaTime;
+                float dt = vfx.UseUnscaledTime ? unscaledDelta : deltaTime;
+                vfx.Timer -= dt;
 
                 if (vfx.Timer <= 0f || vfx.Instance == null)
                 {
+                    // Don't recycle death VFX if persistOnGameOver is enabled and we're at timeScale=0 (Game Over screen)
+                    if (persistDeathVfx && vfx.UseUnscaledTime && Time.timeScale == 0f)
+                    {
+                        continue; // Keep it alive, frozen on screen
+                    }
                     ReleaseVfx(vfx);
                     m_ActiveVfx.RemoveAt(i);
                 }
@@ -778,10 +793,11 @@ namespace PowerPulse.CameraSystem
 
         /// <summary>
         /// Returns the palette color for a game color id, with a white fallback.
+        /// Public so other systems can resolve colors.
         /// </summary>
         /// <param name="color">Game color id.</param>
         /// <returns>The palette color, or white when it cannot be resolved.</returns>
-        private Color GetPaletteColor(ColorId color)
+        public Color GetPaletteColor(ColorId color)
         {
             return m_Palette != null ? m_Palette.GetColor(color) : Color.white;
         }

@@ -71,11 +71,11 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("VFX spawned when an obstacle is collected.")]
         private GameObject m_CollectVfx;
 
-        [SerializeField, Tooltip("VFX spawned when the player dies (screen effects).")]
+        [SerializeField, Tooltip("Single VFX for death: sphere explosion particles + screen distortion combined.")]
         private GameObject m_DeathVfx;
 
-        [SerializeField, Tooltip("VFX spawned when the player dies (explosion particles).")]
-        private GameObject m_DeathExplosionVfx;
+        [SerializeField, Tooltip("Separate VFX for the killing obstacle explosion (plays BEFORE sphere expands).")]
+        private GameObject m_DeathObstacleExplosionVfx;
 
         [SerializeField, Tooltip("VFX spawned when the player dashes.")]
         private GameObject m_DashVfx;
@@ -86,19 +86,47 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Fallback VFX for power-ups whose catalog entry has no VfxPrefab assigned.")]
         private GameObject m_PowerUpVfx;
 
-        [Header("Slow Motion (Death)")]
-        [SerializeField, Tooltip("Duration of the slow-motion effect after death (seconds).")]
-        private float m_SlowMotionDuration = 2f;
+        [Header("Death Sequence")]
+        [SerializeField, Tooltip("Delay before killing obstacle explodes (seconds, unscaled time).")]
+        private float m_KillerExplosionDelay = 0.05f;
 
-        [SerializeField, Tooltip("Curve controlling the time scale lerp from 1 to 0 during slow motion.")]
+        [SerializeField, Tooltip("Scale multiplier for killing obstacle explosion VFX.")]
+        private float m_KillerExplosionScale = 2f;
+
+        [SerializeField, Tooltip("Emission boost for killing obstacle before it explodes.")]
+        private float m_KillerEmissionBoost = 15f;
+
+        [SerializeField, Tooltip("Maximum scale of the sphere during expansion (rest scale = 1).")]
+        private float m_MaxExpansionScale = 4f;
+
+        [SerializeField, Tooltip("Duration of sphere expansion phase (seconds, unscaled time).")]
+        private float m_ExpansionDuration = 0.8f;
+
+        [SerializeField, Tooltip("Curve for sphere expansion (X = progress 0-1, Y = scale multiplier 0-1).")]
+        private AnimationCurve m_ExpansionCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+        [SerializeField, Tooltip("Duration of particle burst phase after sphere explodes (seconds, unscaled time).")]
+        private float m_BurstDuration = 1.2f;
+
+        [SerializeField, Tooltip("Duration of final freeze lerp to timeScale 0 (seconds, unscaled time).")]
+        private float m_FreezeDuration = 0.6f;
+
+        [SerializeField, Tooltip("Slow motion curve: X = total sequence progress (0-1), Y = timeScale (1-0).")]
         private AnimationCurve m_SlowMotionCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
+
+        [SerializeField, Tooltip("At what sequence progress (0-1) to trigger Game Over panel.")]
+        [Range(0f, 1f)]
+        private float m_GameOverTriggerProgress = 0.8f;
+
+        [SerializeField, Tooltip("If true, death VFX particles persist frozen at timeScale=0 until next run.")]
+        private bool m_DeathVfxPersistOnGameOver = true;
 
         [Header("Pooling")]
         [SerializeField, Tooltip("How many collect VFX instances are pre-created.")]
         private int m_CollectPrewarm = 8;
 
         [SerializeField, Tooltip("How many death VFX instances are pre-created.")]
-        private int m_DeathPrewarm = 2;
+        private int m_DeathPrewarm = 4;
 
         [SerializeField, Tooltip("How many dash VFX instances are pre-created.")]
         private int m_DashPrewarm = 6;
@@ -174,11 +202,11 @@ namespace PowerPulse.Core
         /// <summary>VFX spawned when an obstacle is collected.</summary>
         public GameObject CollectVfx => m_CollectVfx;
 
-        /// <summary>VFX spawned when the player dies (screen effects).</summary>
+        /// <summary>Single VFX for death: sphere explosion particles + screen distortion combined.</summary>
         public GameObject DeathVfx => m_DeathVfx;
 
-        /// <summary>VFX spawned when the player dies (explosion particles).</summary>
-        public GameObject DeathExplosionVfx => m_DeathExplosionVfx;
+        /// <summary>Separate VFX for the killing obstacle explosion (plays BEFORE sphere expands).</summary>
+        public GameObject DeathObstacleExplosionVfx => m_DeathObstacleExplosionVfx;
 
         /// <summary>VFX spawned when the player dashes.</summary>
         public GameObject DashVfx => m_DashVfx;
@@ -189,17 +217,44 @@ namespace PowerPulse.Core
         /// <summary>Fallback VFX for power-ups.</summary>
         public GameObject PowerUpVfx => m_PowerUpVfx;
 
-        /// <summary>Duration of the slow-motion effect after death.</summary>
-        public float SlowMotionDuration => m_SlowMotionDuration;
+        /// <summary>Delay before killing obstacle explodes (unscaled time).</summary>
+        public float KillerExplosionDelay => m_KillerExplosionDelay;
 
-        /// <summary>Curve controlling the time scale lerp during slow motion.</summary>
+        /// <summary>Scale multiplier for killing obstacle explosion VFX.</summary>
+        public float KillerExplosionScale => m_KillerExplosionScale;
+
+        /// <summary>Emission boost for killing obstacle before it explodes.</summary>
+        public float KillerEmissionBoost => m_KillerEmissionBoost;
+
+        /// <summary>Maximum scale of the sphere during expansion.</summary>
+        public float MaxExpansionScale => m_MaxExpansionScale;
+
+        /// <summary>Duration of sphere expansion phase (unscaled time).</summary>
+        public float ExpansionDuration => m_ExpansionDuration;
+
+        /// <summary>Curve for sphere expansion (X = progress 0-1, Y = scale multiplier 0-1).</summary>
+        public AnimationCurve ExpansionCurve => m_ExpansionCurve;
+
+        /// <summary>Duration of particle burst phase after sphere explodes (unscaled time).</summary>
+        public float BurstDuration => m_BurstDuration;
+
+        /// <summary>Duration of final freeze lerp to timeScale 0 (unscaled time).</summary>
+        public float FreezeDuration => m_FreezeDuration;
+
+        /// <summary>Slow motion curve: X = total sequence progress (0-1), Y = timeScale (1-0).</summary>
         public AnimationCurve SlowMotionCurve => m_SlowMotionCurve;
+
+        /// <summary>At what sequence progress (0-1) to trigger Game Over panel.</summary>
+        public float GameOverTriggerProgress => m_GameOverTriggerProgress;
+
+        /// <summary>If true, death VFX particles persist frozen at timeScale=0 until next run.</summary>
+        public bool DeathVfxPersistOnGameOver => m_DeathVfxPersistOnGameOver;
+
+        /// <summary>How many death VFX instances to prewarm.</summary>
+        public int DeathPrewarm => m_DeathPrewarm;
 
         /// <summary>How many collect VFX instances are pre-created.</summary>
         public int CollectPrewarm => m_CollectPrewarm;
-
-        /// <summary>How many death VFX instances are pre-created.</summary>
-        public int DeathPrewarm => m_DeathPrewarm;
 
         /// <summary>How many dash VFX instances are pre-created.</summary>
         public int DashPrewarm => m_DashPrewarm;

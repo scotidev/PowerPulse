@@ -99,6 +99,8 @@ namespace PowerPulse.CameraSystem
         private Color m_FlashColor;
 
         private bool m_BoostActive;
+        private float m_BoostTimeLeft;
+        private float m_BoostDuration;
         private float m_DeathPostTimer;
 
         private readonly List<ActiveVfx> m_ActiveVfx = new List<ActiveVfx>();
@@ -255,6 +257,16 @@ namespace PowerPulse.CameraSystem
         private void HandleBoostChanged(List<ColorId> colors)
         {
             m_BoostActive = colors != null && colors.Count > 0;
+            if (m_BoostActive && m_ScoreManager != null)
+            {
+                m_BoostDuration = m_ScoreManager.BoostDuration;
+                m_BoostTimeLeft = m_ScoreManager.BoostTimeLeft;
+            }
+            else
+            {
+                m_BoostDuration = 0f;
+                m_BoostTimeLeft = 0f;
+            }
         }
 
         private void HandleRunReset()
@@ -528,7 +540,8 @@ namespace PowerPulse.CameraSystem
         // ===== FOV =====
 
         /// <summary>
-        /// Moves the field of view toward the boost target.
+        /// Moves the field of view toward the boost target. Starts returning to
+        /// normal before the boost expires to give the player a clear warning.
         /// </summary>
         /// <param name="deltaTime">Frame delta time.</param>
         private void TickFov(float deltaTime)
@@ -538,8 +551,39 @@ namespace PowerPulse.CameraSystem
                 return;
             }
 
-            float target = m_BaseFov + (m_BoostActive ? m_Config.BoostFovPunch : 0f);
-            m_Camera.fieldOfView = Mathf.Lerp(m_Camera.fieldOfView, target, m_Config.FovSpeed * deltaTime);
+            float targetFov = m_BaseFov;
+
+            if (m_BoostActive)
+            {
+                float returnTime = m_Config.BoostFovReturnTime;
+                float progress = 0f;
+
+                if (m_BoostDuration > 0f && returnTime > 0f)
+                {
+                    // How far into the "return phase" we are (0 = just entered return phase, 1 = boost expired)
+                    progress = 1f - Mathf.Clamp01(m_BoostTimeLeft / returnTime);
+                }
+
+                if (progress > 0f)
+                {
+                    // In return phase: lerp from boosted FOV back to base FOV using the curve
+                    float curveValue = m_Config.BoostReturnCurve.Evaluate(progress);
+                    targetFov = Mathf.Lerp(m_BaseFov + m_Config.BoostFovPunch, m_BaseFov, curveValue);
+                }
+                else
+                {
+                    // Full boost phase
+                    targetFov = m_BaseFov + m_Config.BoostFovPunch;
+                }
+            }
+
+            m_Camera.fieldOfView = Mathf.Lerp(m_Camera.fieldOfView, targetFov, m_Config.FovSpeed * deltaTime);
+
+            // Update boost time left for next frame
+            if (m_BoostActive && m_BoostTimeLeft > 0f)
+            {
+                m_BoostTimeLeft -= deltaTime;
+            }
         }
 
         // ===== FLASH =====
@@ -820,13 +864,7 @@ namespace PowerPulse.CameraSystem
                 case PowerUpType.Shield:
                     return Color.cyan;
 
-                case PowerUpType.BoostTwoColors:
-                    return Color.magenta;
-
-                case PowerUpType.BoostThreeColors:
-                    return Color.yellow;
-
-                case PowerUpType.BoostAllColors:
+                case PowerUpType.CollectAllColors:
                     return Color.white;
 
                 default:

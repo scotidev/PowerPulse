@@ -38,6 +38,18 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("How fast the field of view follows the boost target (higher = tighter).")]
         private float m_FovSpeed = 8f;
 
+        [SerializeField, Tooltip("Time before boost ends to start returning FOV to normal (seconds). Gives player warning that boost is expiring.")]
+        private float m_BoostFovReturnTime = 1.5f;
+
+        [SerializeField, Tooltip("Time before boost ends to start returning track speed to normal (seconds). Gives player warning that boost is expiring.")]
+        private float m_BoostSpeedReturnTime = 1.5f;
+
+        [SerializeField, Tooltip("Speed multiplier applied to track speed while boost is active (1 = no change).")]
+        private float m_BoostSpeedMultiplier = 1.25f;
+
+        [SerializeField, Tooltip("Curve for FOV return transition (X = progress 0-1, Y = multiplier 0-1).")]
+        private AnimationCurve m_BoostReturnCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
         [Header("Flash")]
         [SerializeField, Tooltip("Color of the full-screen flash.")]
         private Color m_FlashColor = Color.white;
@@ -171,6 +183,18 @@ namespace PowerPulse.Core
 
         /// <summary>How fast the field of view follows the boost target.</summary>
         public float FovSpeed => m_FovSpeed;
+
+        /// <summary>Time before boost ends to start returning FOV to normal (seconds).</summary>
+        public float BoostFovReturnTime => m_BoostFovReturnTime;
+
+        /// <summary>Time before boost ends to start returning track speed to normal (seconds).</summary>
+        public float BoostSpeedReturnTime => m_BoostSpeedReturnTime;
+
+        /// <summary>Speed multiplier applied to track speed while boost is active.</summary>
+        public float BoostSpeedMultiplier => m_BoostSpeedMultiplier;
+
+        /// <summary>Curve for FOV/speed return transition.</summary>
+        public AnimationCurve BoostReturnCurve => m_BoostReturnCurve;
 
         /// <summary>Color of the full-screen flash.</summary>
         public Color FlashColor => m_FlashColor;

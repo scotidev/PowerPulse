@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace PowerPulse.Core
@@ -20,6 +21,9 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Game balance asset with the speed and difficulty curves.")]
         private Config_GameBalance m_Balance;
 
+        [SerializeField, Tooltip("VFX settings asset for boost speed/FOV return timing.")]
+        private Config_VFX m_VfxConfig;
+
         #endregion
 
 
@@ -28,6 +32,12 @@ namespace PowerPulse.Core
         private IGameManager m_GameManager;
         private Config_GameBalance.DifficultyMilestone m_ActiveMilestone;
         private int m_AppliedMilestoneIndex = -1;
+
+        private ScoreManager m_ScoreManager;
+        private bool m_BoostActive;
+        private float m_BoostTimeLeft;
+        private float m_BoostDuration;
+        private float m_BaseSpeed;
 
         #endregion
 
@@ -93,6 +103,7 @@ namespace PowerPulse.Core
         private void Awake()
         {
             m_GameManager = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IGameManager>() : null;
+            m_ScoreManager = FindFirstObjectByType<ScoreManager>();
         }
 
         private void OnEnable()
@@ -101,6 +112,11 @@ namespace PowerPulse.Core
             {
                 m_GameManager.StateChanged += HandleStateChanged;
             }
+
+            if (m_ScoreManager != null)
+            {
+                m_ScoreManager.OnBoostChanged += HandleBoostChanged;
+            }
         }
 
         private void OnDisable()
@@ -108,6 +124,11 @@ namespace PowerPulse.Core
             if (m_GameManager != null)
             {
                 m_GameManager.StateChanged -= HandleStateChanged;
+            }
+
+            if (m_ScoreManager != null)
+            {
+                m_ScoreManager.OnBoostChanged -= HandleBoostChanged;
             }
         }
 
@@ -186,11 +207,15 @@ namespace PowerPulse.Core
         public void Reset()
         {
             Speed = m_Balance != null ? m_Balance.InitialSpeed : 0f;
+            m_BaseSpeed = Speed;
             Distance = 0f;
             Difficulty = 0f;
             HasStarted = false;
             m_ActiveMilestone = null;
             m_AppliedMilestoneIndex = -1;
+            m_BoostActive = false;
+            m_BoostTimeLeft = 0f;
+            m_BoostDuration = 0f;
         }
 
         #endregion
@@ -200,23 +225,59 @@ namespace PowerPulse.Core
 
         /// <summary>
         /// Advances the run by the given delta time: accumulates distance and
-        /// recalculates speed and difficulty.
+        /// recalculates speed and difficulty. Applies boost speed multiplier
+        /// and starts returning to base speed before boost expires.
         /// </summary>
         /// <param name="deltaTime">Frame delta time in seconds.</param>
         private void Tick(float deltaTime)
         {
-            Distance += Speed * deltaTime;
+            // Update boost time left
+            if (m_BoostActive && m_BoostTimeLeft > 0f)
+            {
+                m_BoostTimeLeft -= deltaTime;
+            }
 
+            // Calculate base speed from milestones/curve (without boost)
             float normalizedDistance = m_Balance != null
                 ? Mathf.Clamp01(Distance / Mathf.Max(m_Balance.SpeedDistanceReference, 0.0001f))
                 : 0f;
 
             ApplyMilestones();
 
-            Speed = m_Balance != null
+            m_BaseSpeed = m_Balance != null
                 ? Mathf.Lerp(m_Balance.InitialSpeed, m_Balance.MaxSpeed, m_Balance.SpeedCurve.Evaluate(normalizedDistance))
                 : 0f;
 
+            // Apply boost speed multiplier with early return
+            float currentSpeed = m_BaseSpeed;
+
+            if (m_BoostActive && m_VfxConfig != null)
+            {
+                float returnTime = m_VfxConfig.BoostSpeedReturnTime;
+                float progress = 0f;
+
+                if (m_BoostDuration > 0f && returnTime > 0f)
+                {
+                    // How far into the "return phase" we are (0 = just entered return phase, 1 = boost expired)
+                    progress = 1f - Mathf.Clamp01(m_BoostTimeLeft / returnTime);
+                }
+
+                if (progress > 0f)
+                {
+                    // In return phase: lerp from boosted speed back to base speed using the curve
+                    float curveValue = m_VfxConfig.BoostReturnCurve.Evaluate(progress);
+                    float boostedSpeed = m_BaseSpeed * m_VfxConfig.BoostSpeedMultiplier;
+                    currentSpeed = Mathf.Lerp(boostedSpeed, m_BaseSpeed, curveValue);
+                }
+                else
+                {
+                    // Full boost phase
+                    currentSpeed = m_BaseSpeed * m_VfxConfig.BoostSpeedMultiplier;
+                }
+            }
+
+            Speed = currentSpeed;
+            Distance += Speed * deltaTime;
             Difficulty = normalizedDistance;
 
             OnDistanceChanged?.Invoke(Distance);
@@ -281,6 +342,29 @@ namespace PowerPulse.Core
                 case GameState.MainMenu:
                     IsRunning = false;
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Handles boost start/end from ScoreManager. Tracks boost timing for
+        /// early speed return before boost expires.
+        /// </summary>
+        /// <param name="colors">Colors covered by the boost (empty = boost ended).</param>
+        private void HandleBoostChanged(List<ColorId> colors)
+        {
+            m_BoostActive = colors != null && colors.Count > 0;
+
+            if (m_BoostActive && m_ScoreManager != null)
+            {
+                m_BoostDuration = m_ScoreManager.BoostDuration;
+                m_BoostTimeLeft = m_ScoreManager.BoostTimeLeft;
+            }
+            else
+            {
+                m_BoostDuration = 0f;
+                m_BoostTimeLeft = 0f;
+                // Ensure speed returns to base when boost ends
+                Speed = m_BaseSpeed;
             }
         }
 

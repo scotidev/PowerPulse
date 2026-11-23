@@ -8,13 +8,7 @@ namespace PowerPulse.Core
         /// <summary>Absorbs one incompatible collision.</summary>
         Shield,
 
-        /// <summary>Allows collecting two colors for a limited time.</summary>
-        BoostTwoColors,
-
-        /// <summary>Allows collecting three colors for a limited time.</summary>
-        BoostThreeColors,
-
         /// <summary>Allows collecting any color for a limited time.</summary>
-        BoostAllColors
+        CollectAllColors
     }
 }

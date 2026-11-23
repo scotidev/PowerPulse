@@ -141,9 +141,21 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Number of lanes on the track.")]
         private int m_LaneCount = 5;
 
+        [Header("Track Boundaries")]
+        [SerializeField, Tooltip("Half-width of the track in world units (auto-calculated from lanes if 0).")]
+        private float m_TrackHalfWidth = 0f;
+
         [Header("Pooling")]
         [SerializeField, Tooltip("How many instances of each obstacle prefab are pre-created.")]
         private int m_ObstaclePrewarm = 10;
+
+        #endregion
+
+
+        #region PROPERTIES
+
+        /// <summary>Half-width of the track in world units.</summary>
+        public float TrackHalfWidth => m_TrackHalfWidth > 0f ? m_TrackHalfWidth : m_LaneCount * 0.5f * m_LaneWidth;
 
         #endregion
 
@@ -173,6 +185,9 @@ namespace PowerPulse.Core
         private readonly List<ActiveObstacle> m_ActiveObstacles = new List<ActiveObstacle>();
         private readonly List<GameObject> m_ActivePortals = new List<GameObject>();
         private readonly List<ActivePowerUp> m_ActivePowerUps = new List<ActivePowerUp>();
+
+        // Cache: prefab -> width in lanes (populated during prewarm when Obstacle.Awake has run)
+        private readonly Dictionary<GameObject, int> m_ObstacleWidthCache = new Dictionary<GameObject, int>();
 
         private float m_DistanceSinceLastSpawn;
         private bool m_IsSpawningEnabled = true;
@@ -527,16 +542,39 @@ namespace PowerPulse.Core
         // ===== OBSTACLES =====
 
         /// <summary>
-        /// Pre-creates the instances of every obstacle prefab in the catalog.
+        /// Pre-creates the instances of every obstacle prefab in the catalog
+        /// and caches their width in lanes (read after Obstacle.Awake auto-detects Size).
         /// </summary>
         private void PrewarmObstacles()
         {
+            m_ObstacleWidthCache.Clear();
+
             for (int i = 0; i < m_Catalog.ObstaclePrefabs.Count; i++)
             {
                 GameObject prefab = m_Catalog.ObstaclePrefabs[i];
-                if (prefab != null)
+                if (prefab == null)
                 {
-                    m_Pool.CreatePool(prefab, m_ObstaclePrewarm);
+                    continue;
+                }
+
+                m_Pool.CreatePool(prefab, m_ObstaclePrewarm);
+
+                // Read width from a pooled instance (Obstacle.Awake has run and auto-detected Size)
+                GameObject sample = m_Pool.Get(prefab, Vector3.zero, Quaternion.identity);
+                if (sample != null)
+                {
+                    Obstacle obs = sample.GetComponent<Obstacle>();
+                    if (obs != null && obs.Size.x > 0f)
+                    {
+                        int widthInLanes = Mathf.Max(1, Mathf.RoundToInt(obs.Size.x / m_LaneWidth));
+                        m_ObstacleWidthCache[prefab] = widthInLanes;
+                    }
+                    else
+                    {
+                        m_ObstacleWidthCache[prefab] = 1;
+                        Debug.LogWarning($"[SpawnManager] {prefab.name} has Size.x={obs?.Size.x ?? 0}, defaulting to 1 lane");
+                    }
+                    m_Pool.Release(prefab, sample);
                 }
             }
         }
@@ -663,20 +701,29 @@ namespace PowerPulse.Core
         private void SpawnObstacle()
         {
             int obstacleCount = Mathf.Clamp(m_RunManager.MaxObstaclesPerRow, 1, m_MaxObstaclesPerRow);
-            int[] lanes = PickFreeLanes(obstacleCount);
 
-            for (int i = 0; i < lanes.Length; i++)
+            for (int i = 0; i < obstacleCount; i++)
             {
-                SpawnSingleObstacle(lanes[i]);
+                // Pick random prefab for each obstacle
+                GameObject prefab = m_Catalog.ObstaclePrefabs[Random.Range(0, m_Catalog.ObstaclePrefabs.Count)];
+                if (prefab != null)
+                {
+                    SpawnSingleObstacle(prefab);
+                }
             }
         }
 
         /// <summary>
         /// Picks random lanes for the obstacles of this row, keeping at least one
-        /// lane free so the player always has a way through.
+        /// lane free so the player always has a way through. Considers obstacle
+        /// width so wide obstacles only spawn where they fit.
         /// </summary>
         private int[] PickFreeLanes(int count)
         {
+            // Build list of valid starting lanes for each obstacle prefab
+            // We'll pick one prefab at a time in SpawnObstacle, so we need a method
+            // that returns valid lanes for a given width. For now, assume width=1
+            // as default; SpawnSingleObstacle will call a width-aware version.
             int[] lanes = new int[m_LaneCount];
 
             for (int i = 0; i < m_LaneCount; i++)
@@ -704,19 +751,103 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
-        /// Spawns a single obstacle in the given lane.
+        /// Returns valid starting lanes for an obstacle of the given width (in lanes).
+        /// Ensures the obstacle fits within the track and leaves at least one free lane.
         /// </summary>
-        private void SpawnSingleObstacle(int lane)
+        private int[] GetValidLanesForWidth(int widthInLanes)
         {
-            float x = (lane - (m_LaneCount - 1) * 0.5f) * m_LaneWidth;
-
-            GameObject prefab = m_Catalog.ObstaclePrefabs[Random.Range(0, m_Catalog.ObstaclePrefabs.Count)];
-
-            if (prefab == null)
+            if (widthInLanes <= 1)
             {
-                Debug.LogError("[SpawnManager] The catalog contains a null obstacle prefab.", this);
+                // Standard single-lane obstacle: any lane is valid
+                int[] allLanes = new int[m_LaneCount];
+                for (int i = 0; i < m_LaneCount; i++) allLanes[i] = i;
+                return allLanes;
+            }
+
+            // Wide obstacle: can only start at lanes where it fits completely
+            // within track boundaries AND leaves at least one free lane
+            float trackHalfWidth = TrackHalfWidth;
+            float obstacleHalfWidth = widthInLanes * 0.5f * m_LaneWidth;
+
+            // Valid center lane range: center must be within [-(trackHalfWidth - obstacleHalfWidth), +(trackHalfWidth - obstacleHalfWidth)]
+            float maxCenterOffset = trackHalfWidth - obstacleHalfWidth;
+            float maxCenterLane = maxCenterOffset / m_LaneWidth;
+
+            // Center lane = startLane + (widthInLanes - 1) * 0.5f
+            // So startLane = centerLane - (widthInLanes - 1) * 0.5f
+            // Max startLane = maxCenterLane - (widthInLanes - 1) * 0.5f
+            float maxStartLaneFloat = maxCenterLane - (widthInLanes - 1) * 0.5f;
+            int maxStartLane = Mathf.FloorToInt(maxStartLaneFloat);
+
+            // Also enforce "at least one free lane" safety rule
+            // Free lanes = m_LaneCount - widthInLanes
+            // We need at least 1 free lane, so maxStartLane = m_LaneCount - widthInLanes - 1
+            int maxStartLaneSafety = m_LaneCount - widthInLanes - 1;
+
+            int maxAllowedStartLane = Mathf.Min(maxStartLane, maxStartLaneSafety);
+
+            if (maxAllowedStartLane < 0)
+            {
+                // Too wide for the track with safety rule, fall back to max fit (no safety)
+                maxAllowedStartLane = maxStartLane;
+            }
+
+            int validCount = Mathf.Max(1, maxAllowedStartLane + 1);
+            int[] validLanes = new int[validCount];
+            for (int i = 0; i < validCount; i++)
+            {
+                validLanes[i] = i;
+            }
+
+            return validLanes;
+        }
+
+        /// <summary>
+        /// Spawns a single obstacle in a valid lane for its width.
+        /// </summary>
+        private void SpawnSingleObstacle(GameObject prefab)
+        {
+            // Get cached width (populated in PrewarmObstacles after Obstacle.Awake auto-detected Size)
+            int widthInLanes = 1;
+            if (m_ObstacleWidthCache.TryGetValue(prefab, out int cachedWidth))
+            {
+                widthInLanes = cachedWidth;
+            }
+            else
+            {
+                // Fallback: read from prefab directly (shouldn't happen if prewarm ran)
+                Obstacle obstacleComponent = prefab.GetComponent<Obstacle>();
+                if (obstacleComponent != null && obstacleComponent.Size.x > 0f)
+                {
+                    widthInLanes = Mathf.Max(1, Mathf.RoundToInt(obstacleComponent.Size.x / m_LaneWidth));
+                    m_ObstacleWidthCache[prefab] = widthInLanes;
+                    Debug.LogWarning($"[SpawnManager]   Cache miss for {prefab.name}, read Size.x={obstacleComponent.Size.x:F2} -> {widthInLanes} lane(s)");
+                }
+                else
+                {
+                    Debug.LogWarning($"[SpawnManager]   No cached width for {prefab.name}, defaulting to 1 lane");
+                }
+            }
+
+            int[] validLanes = GetValidLanesForWidth(widthInLanes);
+            if (validLanes.Length == 0)
+            {
+                Debug.LogWarning($"[SpawnManager] No valid lanes for obstacle width {widthInLanes}. Skipping spawn.");
                 return;
             }
+
+            // Pick random valid STARTING lane
+            int startLane = validLanes[Random.Range(0, validLanes.Length)];
+
+            // Calculate center lane for this width (startLane + half width offset)
+            float centerLane = startLane + (widthInLanes - 1) * 0.5f;
+            float x = (centerLane - (m_LaneCount - 1) * 0.5f) * m_LaneWidth;
+
+            // Track boundaries for reference (use correct TrackHalfWidth property)
+            float trackHalfWidth = TrackHalfWidth;
+            float obstacleHalfWidth = widthInLanes * 0.5f * m_LaneWidth;
+            float leftEdge = x - obstacleHalfWidth;
+            float rightEdge = x + obstacleHalfWidth;
 
             GameObject instance = m_Pool.Get(prefab, Vector3.zero, Quaternion.identity);
             Obstacle component = instance != null ? instance.GetComponent<Obstacle>() : null;
@@ -1205,7 +1336,6 @@ namespace PowerPulse.Core
 
         /// <summary>
         /// Tells whether a power-up can spawn with the colors currently unlocked.
-        /// The color boosts only appear once the colors they cover are available.
         /// </summary>
         /// <param name="entry">Power-up entry to check.</param>
         /// <returns>True when the power-up is available.</returns>
@@ -1216,28 +1346,8 @@ namespace PowerPulse.Core
                 return false;
             }
 
-            if (entry.Type == PowerUpType.Shield)
-            {
-                return true;
-            }
-
-            int unlockedCount = m_ScoreManager != null ? m_ScoreManager.UnlockedColors.Count : 0;
-
-            switch (entry.Type)
-            {
-                case PowerUpType.BoostTwoColors:
-                    return unlockedCount >= 2;
-
-                case PowerUpType.BoostThreeColors:
-                    return unlockedCount >= 3;
-
-                case PowerUpType.BoostAllColors:
-                    int totalColors = m_Palette != null ? m_Palette.ColorCount : 5;
-                    return unlockedCount >= totalColors;
-
-                default:
-                    return false;
-            }
+            // Both Shield and CollectAllColors are always available from the start
+            return entry.Type == PowerUpType.Shield || entry.Type == PowerUpType.CollectAllColors;
         }
 
         /// <summary>
@@ -1268,88 +1378,36 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
-        /// Applies the power-up effect to the ScoreManager.
-        /// </summary>
-        private void ApplyPowerUpEffect(SO_PowerUpCatalog.PowerUpEntry entry)
-        {
-            switch (entry.Type)
-            {
-                case PowerUpType.Shield:
-                    if (!m_ScoreManager.HasShield)
+                /// Applies the power-up effect to the ScoreManager.
+                /// </summary>
+                private void ApplyPowerUpEffect(SO_PowerUpCatalog.PowerUpEntry entry)
+                {
+                    switch (entry.Type)
                     {
-                        m_ScoreManager.AddShield();
-                        Debug.Log("[SpawnManager] Shield granted.");
+                        case PowerUpType.Shield:
+                            if (!m_ScoreManager.HasShield)
+                            {
+                                m_ScoreManager.AddShield();
+                                Debug.Log("[SpawnManager] Shield granted.");
+                            }
+                            else
+                            {
+                                Debug.Log("[SpawnManager] Shield already active: ignored.");
+                            }
+                            break;
+
+                        case PowerUpType.CollectAllColors:
+                            // Grant boost that allows collecting all 5 colors for the configured duration
+                            List<ColorId> allColors = new List<ColorId>();
+                            foreach (ColorId color in System.Enum.GetValues(typeof(ColorId)))
+                            {
+                                allColors.Add(color);
+                            }
+                            m_ScoreManager.ActivateBoost(allColors, entry.Duration);
+                            Debug.Log($"[SpawnManager] CollectAllColors boost granted for {entry.Duration:0.#} s.");
+                            break;
                     }
-                    else
-                    {
-                        Debug.Log("[SpawnManager] Shield already active: ignored.");
-                    }
-                    break;
-
-                case PowerUpType.BoostTwoColors:
-                case PowerUpType.BoostThreeColors:
-                case PowerUpType.BoostAllColors:
-                    List<ColorId> colors = ResolveBoostColors(entry);
-                    m_ScoreManager.ActivateBoost(colors, entry.Duration);
-                    Debug.Log($"[SpawnManager] Boost granted: {string.Join(", ", colors)} for {entry.Duration:0.#} s.");
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Resolves the colors covered by a boost. The boost always covers the
-        /// active color plus other unlocked colors (or every color for the
-        /// all-colors boost). The catalog list is used as a fallback when there
-        /// are not enough unlocked colors.
-        /// </summary>
-        private List<ColorId> ResolveBoostColors(SO_PowerUpCatalog.PowerUpEntry entry)
-        {
-            List<ColorId> colors = new List<ColorId>();
-
-            if (entry.Type == PowerUpType.BoostAllColors)
-            {
-                foreach (ColorId color in System.Enum.GetValues(typeof(ColorId)))
-                {
-                    colors.Add(color);
                 }
-
-                return colors;
-            }
-
-            int targetCount = entry.Type == PowerUpType.BoostThreeColors ? 3 : 2;
-
-            ColorId activeColor = m_ScoreManager.ActiveColor;
-            colors.Add(activeColor);
-
-            List<ColorId> unlocked = m_ScoreManager.UnlockedColors;
-            List<ColorId> candidates = new List<ColorId>(unlocked);
-
-            for (int i = candidates.Count - 1; i > 0; i--)
-            {
-                int j = Random.Range(0, i + 1);
-                ColorId temp = candidates[i];
-                candidates[i] = candidates[j];
-                candidates[j] = temp;
-            }
-
-            for (int i = 0; i < candidates.Count && colors.Count < targetCount; i++)
-            {
-                if (candidates[i] != activeColor)
-                {
-                    colors.Add(candidates[i]);
-                }
-            }
-
-            for (int i = 0; i < entry.ColorsCovered.Count && colors.Count < targetCount; i++)
-            {
-                if (!colors.Contains(entry.ColorsCovered[i]))
-                {
-                    colors.Add(entry.ColorsCovered[i]);
-                }
-            }
-
-            return colors;
-        }
 
         /// <summary>
         /// Clears the active power-ups for a new run.

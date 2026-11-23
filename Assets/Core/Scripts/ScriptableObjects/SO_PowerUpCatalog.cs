@@ -27,9 +27,6 @@ namespace PowerPulse.Core
             [Tooltip("Duration of the effect in seconds (0 = instant).")]
             public float Duration = 0f;
 
-            [Tooltip("Colors covered by the boost. Fallback when there are not enough unlocked colors.")]
-            public List<ColorId> ColorsCovered = new List<ColorId>();
-
             [Tooltip("Sound played when the power-up is collected.")]
             public AudioClip Sfx;
 

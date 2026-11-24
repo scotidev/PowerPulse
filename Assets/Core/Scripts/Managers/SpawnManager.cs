@@ -110,6 +110,9 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Distance traveled after a portal before obstacles spawn again (adaptation window).")]
         private float m_PortalCooldown = 25f;
 
+        [SerializeField, Tooltip("Distance before a portal where power-ups stop spawning (prevents power-up right before portal).")]
+        private float m_PortalApproachCooldown = 100f;
+
         [SerializeField, Tooltip("Minimum distance between an obstacle row and an active portal. Obstacles never spawn right next to a portal. When 0, the GameBalance value is used.")]
         private float m_PortalClearance = 0f;
 
@@ -497,6 +500,39 @@ namespace PowerPulse.Core
             }
 
             return nearestDistance;
+        }
+
+        /// <summary>
+        /// Returns the distance to the next scheduled portal spawn (based on portal interval).
+        /// Returns -1 if no portal is scheduled (no portal prefab or interval not set).
+        /// </summary>
+        /// <returns>Distance in meters to next portal spawn point from current run distance, or -1.</returns>
+        private float GetDistanceToNextPortal()
+        {
+            if (m_PortalPrefab == null)
+            {
+                return -1f;
+            }
+
+            float interval = m_PortalInterval;
+            if (interval <= 0f && m_Balance != null)
+            {
+                interval = m_Balance.PortalInterval;
+            }
+            if (interval <= 0f)
+            {
+                interval = c_DefaultPortalInterval;
+            }
+
+            if (m_DistanceSinceLastPortal < m_PortalInitialSafeDistance)
+            {
+                // First portal hasn't spawned yet
+                return m_PortalInitialSafeDistance - m_DistanceSinceLastPortal;
+            }
+
+            // Next portal based on interval
+            float distanceToNext = interval - (m_DistanceSinceLastPortal % interval);
+            return distanceToNext;
         }
 
         /// <summary>
@@ -1229,6 +1265,13 @@ namespace PowerPulse.Core
             }
 
             if (m_RunManager.Distance - m_DistanceAtLastPortal < GetPortalCooldown())
+            {
+                return;
+            }
+
+            // Prevent power-up spawning right before a portal (approach cooldown)
+            float distanceToNextPortal = GetDistanceToNextPortal();
+            if (distanceToNextPortal > 0f && distanceToNextPortal < m_PortalApproachCooldown)
             {
                 return;
             }

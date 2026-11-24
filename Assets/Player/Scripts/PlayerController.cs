@@ -55,6 +55,13 @@ namespace PowerPulse.Player
         [SerializeField, Tooltip("Minimum vertical swipe distance (in pixels) to jump.")]
         private float m_SwipeThreshold = 50f;
 
+        [Header("Air Movement")]
+        [SerializeField, Tooltip("If true, dash completes instantly while airborne (snappy lane change mid-jump).")]
+        private bool m_InstantDashInAir = true;
+
+        [SerializeField, Tooltip("Speed multiplier for lane movement while airborne (ignored if Instant Dash In Air is true).")]
+        private float m_AirDashSpeedMultiplier = 3f;
+
         #endregion
 
 
@@ -273,6 +280,20 @@ namespace PowerPulse.Player
             }
 
             float speed = c_LaneWidth / Mathf.Max(m_InputSettings.DashDuration, 0.01f);
+
+            // Instant dash while airborne for responsive mid-air lane changes
+            if (m_InstantDashInAir && !m_IsGrounded)
+            {
+                m_Rb.MovePosition(new Vector3(targetX, m_Rb.position.y, m_Rb.position.z));
+                return;
+            }
+
+            // Faster dash while airborne (if not instant)
+            if (!m_IsGrounded)
+            {
+                speed *= m_AirDashSpeedMultiplier;
+            }
+
             float maxStep = speed * Time.fixedDeltaTime;
             float newX = Mathf.MoveTowards(currentX, targetX, maxStep);
 

@@ -345,7 +345,7 @@ namespace PowerPulse.CameraSystem
 
             if (m_Volume == null)
             {
-                m_Volume = FindFirstObjectByType<Volume>();
+                m_Volume = FindAnyObjectByType<Volume>();
             }
 
             if (m_Player == null)
@@ -356,17 +356,17 @@ namespace PowerPulse.CameraSystem
 
             if (m_Pool == null)
             {
-                m_Pool = FindFirstObjectByType<ObjectPool>();
+                m_Pool = FindAnyObjectByType<ObjectPool>();
             }
 
             if (m_ScoreManager == null)
             {
-                m_ScoreManager = FindFirstObjectByType<ScoreManager>();
+                m_ScoreManager = FindAnyObjectByType<ScoreManager>();
             }
 
             if (m_SpawnManager == null)
             {
-                m_SpawnManager = FindFirstObjectByType<SpawnManager>();
+                m_SpawnManager = FindAnyObjectByType<SpawnManager>();
             }
 
             if (m_PlayerController == null && m_Player != null)

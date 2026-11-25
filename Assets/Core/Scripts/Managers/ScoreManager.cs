@@ -403,7 +403,7 @@ namespace PowerPulse.Core
         {
             if (m_SpawnManager == null)
             {
-                m_SpawnManager = FindFirstObjectByType<SpawnManager>();
+                m_SpawnManager = FindAnyObjectByType<SpawnManager>();
             }
         }
 

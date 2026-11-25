@@ -66,12 +66,6 @@ namespace PowerPulse.Core
         /// <summary>Milestone currently applied to the run (null before the first one).</summary>
         public Config_GameBalance.DifficultyMilestone ActiveMilestone => m_ActiveMilestone;
 
-        /// <summary>Whether lateral moving obstacles are enabled by the current milestone.</summary>
-        public bool MovingEnabled => m_ActiveMilestone != null && m_ActiveMilestone.EnableMoving;
-
-        /// <summary>Whether faster lateral obstacles are enabled by the current milestone.</summary>
-        public bool FasterEnabled => m_ActiveMilestone != null && m_ActiveMilestone.EnableFaster;
-
         /// <summary>Maximum number of obstacles per row from the current milestone.</summary>
         public int MaxObstaclesPerRow => m_ActiveMilestone != null ? m_ActiveMilestone.MaxObstaclesPerRow : 1;
 
@@ -103,7 +97,7 @@ namespace PowerPulse.Core
         private void Awake()
         {
             m_GameManager = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IGameManager>() : null;
-            m_ScoreManager = FindFirstObjectByType<ScoreManager>();
+            m_ScoreManager = FindAnyObjectByType<ScoreManager>();
         }
 
         private void OnEnable()
@@ -317,7 +311,6 @@ namespace PowerPulse.Core
             OnMilestoneReached?.Invoke(milestone);
 
             Debug.Log($"[RunManager] Milestone reached at {milestone.Distance} m: speed {milestone.Speed}, " +
-                      $"moving {milestone.EnableMoving}, faster {milestone.EnableFaster}, " +
                       $"max per row {milestone.MaxObstaclesPerRow}.");
         }
 

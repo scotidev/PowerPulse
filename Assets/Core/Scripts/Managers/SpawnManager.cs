@@ -62,8 +62,8 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Distance between obstacle rows, in meters.")]
         private float m_SpawnSpacing = 10f;
 
-        [SerializeField, Tooltip("No obstacles spawn before this distance, in meters.")]
-        private float m_InitialSafeDistance = 20f;
+        [SerializeField, Tooltip("Distance ahead of the player (Z=0) where new obstacles are spawned.")]
+        private float m_SpawnDistanceAhead = 50f;
 
         [SerializeField, Tooltip("World Z below which an obstacle is recycled.")]
         private float m_RecycleZ = -15f;
@@ -125,13 +125,6 @@ namespace PowerPulse.Core
         [Header("Colors")]
         [SerializeField, Tooltip("TEMPORARY (Phase 5): colors used when the ScoreManager is not assigned. Replaced by the ScoreManager in Phase 6.")]
         private List<ColorId> m_ActiveColors = new List<ColorId> { ColorId.Red, ColorId.Pink };
-
-        [Header("Movement")]
-        [SerializeField, Tooltip("Lateral speed of Moving obstacles in units per second.")]
-        private float m_MovingSpeed = 1.5f;
-
-        [SerializeField, Tooltip("Lateral speed of Faster obstacles in units per second.")]
-        private float m_FasterSpeed = 3f;
 
         [Header("Safety")]
         [SerializeField, Tooltip("Maximum number of obstacles spawned in the same row (safety rule: never block every lane).")]
@@ -617,7 +610,7 @@ namespace PowerPulse.Core
 
         /// <summary>
         /// Moves every active obstacle toward the camera and recycles the ones
-        /// behind the recycle line.
+        /// behind the recycle line. Obstacles are static (no lateral movement).
         /// </summary>
         /// <param name="delta">Distance to move in world units.</param>
         private void MoveObstacles(float delta)
@@ -627,30 +620,12 @@ namespace PowerPulse.Core
                 ActiveObstacle active = m_ActiveObstacles[i];
                 active.Instance.transform.position += Vector3.back * delta;
 
-                MoveObstacleLaterally(active.Instance, delta);
-
                 if (active.Instance.transform.position.z < m_RecycleZ)
                 {
                     m_Pool.Release(active.Prefab, active.Instance);
                     m_ActiveObstacles.RemoveAt(i);
                 }
             }
-        }
-
-        /// <summary>
-        /// Moves a single obstacle laterally according to its behaviour.
-        /// </summary>
-        private void MoveObstacleLaterally(GameObject instance, float delta)
-        {
-            Obstacle component = instance.GetComponent<Obstacle>();
-
-            if (component == null || !component.IsMovable)
-            {
-                return;
-            }
-
-            float speed = component.Behaviour == ObstacleBehaviour.Faster ? m_FasterSpeed : m_MovingSpeed;
-            component.MoveLateral(speed * Time.deltaTime);
         }
 
         /// <summary>
@@ -666,12 +641,13 @@ namespace PowerPulse.Core
                 return;
             }
 
-            if (m_RunManager.Distance < m_InitialSafeDistance || m_Catalog.ObstaclePrefabs.Count == 0)
+            if (m_RunManager.Distance < m_Balance.InitialSafeDistance || m_Catalog.ObstaclePrefabs.Count == 0)
             {
                 return;
             }
 
-            if (m_RunManager.Distance - m_DistanceAtLastPortal < GetPortalCooldown())
+            float portalCooldown = GetPortalCooldown();
+            if (m_RunManager.Distance - m_DistanceAtLastPortal < portalCooldown)
             {
                 return;
             }
@@ -687,29 +663,22 @@ namespace PowerPulse.Core
 
         /// <summary>
         /// Chooses the behaviour of a newly spawned obstacle based on the milestones.
+        /// Only Static, Tall, and Wide are available (no lateral movement).
         /// </summary>
         private ObstacleBehaviour ChooseBehaviour()
         {
-            if (m_RunManager.FasterEnabled && Random.value < c_FasterChance)
-            {
-                return ObstacleBehaviour.Faster;
-            }
-
-            if (m_RunManager.MovingEnabled)
-            {
-                return ObstacleBehaviour.Moving;
-            }
-
+            // For now, all obstacles are static. Tall/Wide could be enabled by milestones later.
+            // Return Static as default; prefabs themselves define Tall/Wide via their Obstacle component.
             return ObstacleBehaviour.Static;
         }
 
         /// <summary>
-        /// Tells whether an obstacle can spawn at the front edge of the track,
+        /// Tells whether an obstacle can spawn at the spawn distance ahead,
         /// keeping the clearance distance from every active portal.
         /// </summary>
         private bool HasPortalClearance()
         {
-            float spawnZ = m_TrackManager.FrontZ;
+            float spawnZ = m_SpawnDistanceAhead;
             float clearanceBehind = GetClearanceBehind();
             float clearanceAhead = GetClearanceAhead();
 
@@ -894,12 +863,12 @@ namespace PowerPulse.Core
                 return;
             }
 
-            instance.transform.position = new Vector3(x, component.Size.y * 0.5f, m_TrackManager.FrontZ);
+            instance.transform.position = new Vector3(x, component.Size.y * 0.5f, m_SpawnDistanceAhead);
             component.SourcePrefab = prefab;
             component.SetColor(GetRandomSpawnColor());
 
             ObstacleBehaviour behaviour = ChooseBehaviour();
-            component.SetBehaviour(behaviour, GetBehaviourSpeed(behaviour));
+            component.SetBehaviour(behaviour);
 
             ActiveObstacle active = new ActiveObstacle { Prefab = prefab, Instance = instance };
             m_ActiveObstacles.Add(active);
@@ -938,24 +907,6 @@ namespace PowerPulse.Core
             }
 
             return m_ActiveColors[Random.Range(0, m_ActiveColors.Count)];
-        }
-
-        /// <summary>
-        /// Returns the lateral speed for the given behaviour.
-        /// </summary>
-        private float GetBehaviourSpeed(ObstacleBehaviour behaviour)
-        {
-            switch (behaviour)
-            {
-                case ObstacleBehaviour.Faster:
-                    return m_FasterSpeed;
-
-                case ObstacleBehaviour.Moving:
-                    return m_MovingSpeed;
-
-                default:
-                    return 0f;
-            }
         }
 
         /// <summary>
@@ -1118,10 +1069,11 @@ namespace PowerPulse.Core
 
         /// <summary>
         /// Returns a world Z far enough from every active obstacle.
+        /// Uses the configured spawn distance ahead of the player.
         /// </summary>
         private float GetSafePortalZ()
         {
-            float desiredZ = m_TrackManager.FrontZ;
+            float desiredZ = m_SpawnDistanceAhead;
             float clearance = GetClearanceBehind();
 
             if (clearance <= 0f)
@@ -1254,7 +1206,7 @@ namespace PowerPulse.Core
                 return;
             }
 
-            if (m_RunManager.Distance < m_InitialSafeDistance || m_PowerUpCatalog == null || m_PowerUpCatalog.PowerUps.Count == 0)
+            if (m_RunManager.Distance < m_Balance.InitialSafeDistance || m_PowerUpCatalog == null || m_PowerUpCatalog.PowerUps.Count == 0)
             {
                 return;
             }
@@ -1276,7 +1228,7 @@ namespace PowerPulse.Core
                 return;
             }
 
-            float safeZ = FindSafeSpawnZ(m_TrackManager.FrontZ, m_PowerUpObstacleClearance);
+            float safeZ = FindSafeSpawnZ(m_SpawnDistanceAhead, m_PowerUpObstacleClearance);
 
             if (!HasPowerUpPortalClearance(safeZ))
             {

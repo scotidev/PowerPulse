@@ -349,7 +349,7 @@ namespace PowerPulse.Player
             // Spawn obstacle explosion VFX at obstacle position via CameraFX
             if (m_KillingObstacle != null && m_VfxConfig != null && m_VfxConfig.DeathObstacleExplosionVfx != null)
             {
-                CameraFX cameraFX = FindFirstObjectByType<CameraFX>();
+                CameraFX cameraFX = FindAnyObjectByType<CameraFX>();
                 if (cameraFX != null)
                 {
                     Color killerColor = GetKillerColor();
@@ -441,7 +441,7 @@ namespace PowerPulse.Player
 
             // Trigger CameraFX.PlayDeath to spawn the main DeathVfx particles
             // These particles will use unscaled time and persist on Game Over if configured
-            CameraFX cameraFX = FindFirstObjectByType<CameraFX>();
+            CameraFX cameraFX = FindAnyObjectByType<CameraFX>();
             if (cameraFX != null && m_ScoreManager != null)
             {
                 Color deathColor = cameraFX.GetPaletteColor(m_ScoreManager.ActiveColor);

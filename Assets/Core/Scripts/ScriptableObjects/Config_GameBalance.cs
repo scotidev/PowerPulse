@@ -25,12 +25,6 @@ namespace PowerPulse.Core
             [Tooltip("Track speed applied from this milestone on (units per second).")]
             public float Speed = 8f;
 
-            [Tooltip("Whether lateral moving obstacles are enabled from here on.")]
-            public bool EnableMoving;
-
-            [Tooltip("Whether faster lateral obstacles are enabled from here on.")]
-            public bool EnableFaster;
-
             [Tooltip("Maximum number of obstacles per row from here on.")]
             public int MaxObstaclesPerRow = 1;
         }
@@ -60,6 +54,9 @@ namespace PowerPulse.Core
 
         [Header("Spawning")]
 
+        [SerializeField, Tooltip("Distance before first obstacles spawn (meters). Safe zone for player onboarding.")]
+        private float m_InitialSafeDistance = 5f;
+
         [SerializeField, Tooltip("Distance between color portals (meters).")]
         private float m_PortalInterval = 500f;
 
@@ -87,14 +84,6 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("Maximum number of colors active at once.")]
         private int m_MaxColors = 5;
 
-        [Header("Obstacle Movement")]
-
-        [SerializeField, Tooltip("Lateral speed of Moving obstacles in units per second.")]
-        private float m_MovingSpeed = 1.5f;
-
-        [SerializeField, Tooltip("Lateral speed of Faster obstacles in units per second.")]
-        private float m_FasterSpeed = 3f;
-
         #endregion
 
 
@@ -117,6 +106,9 @@ namespace PowerPulse.Core
 
         /// <summary>Distance between color portals (meters).</summary>
         public float PortalInterval => m_PortalInterval;
+
+        /// <summary>Distance before first obstacles spawn (meters).</summary>
+        public float InitialSafeDistance => m_InitialSafeDistance;
 
         /// <summary>Minimum distance between an obstacle row and an active portal (meters).</summary>
         public float PortalClearance => m_PortalClearance;
@@ -141,12 +133,6 @@ namespace PowerPulse.Core
 
         /// <summary>Maximum number of colors active at once.</summary>
         public int MaxColors => m_MaxColors;
-
-        /// <summary>Lateral speed of Moving obstacles in units per second.</summary>
-        public float MovingSpeed => m_MovingSpeed;
-
-        /// <summary>Lateral speed of Faster obstacles in units per second.</summary>
-        public float FasterSpeed => m_FasterSpeed;
 
         #endregion
     }

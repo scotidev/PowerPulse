@@ -34,6 +34,10 @@ namespace PowerPulse.Player
         [SerializeField, Tooltip("Visual ring shown around the sphere while the shield is active.")]
         private GameObject m_ShieldVisual;
 
+        [Header("CollectAllColors Visual")]
+        [SerializeField, Tooltip("Child GameObject shown while CollectAllColors boost is active.")]
+        private GameObject m_CollectAllColorsVisual;
+
         [Header("Boost Blink")]
 
         [SerializeField, Tooltip("Seconds between color swaps at the start of the boost.")]
@@ -176,6 +180,13 @@ namespace PowerPulse.Player
             m_BoostBlinkTimer = 0f;
             m_BoostBlinkIndex = 0;
 
+            // Activate CollectAllColors visual if boost covers all palette colors
+            bool isCollectAll = m_BoostColors.Count == (m_Palette != null ? m_Palette.ColorCount : 5);
+            if (m_CollectAllColorsVisual != null)
+            {
+                m_CollectAllColorsVisual.SetActive(isCollectAll);
+            }
+
             if (m_BoostColors.Count == 0)
             {
                 SetColor(m_ScoreManager != null ? m_ScoreManager.ActiveColor : ActiveColor);
@@ -278,7 +289,7 @@ namespace PowerPulse.Player
             }
 
             Color color = m_Palette.GetColor(id);
-            float emission = m_Palette.GetEmission(id);
+            float emission = m_Palette.PlayerEmissionMultiplier;
 
             m_MaterialInstance.color = color;
             m_MaterialInstance.SetColor("_BaseColor", color);
@@ -379,6 +390,12 @@ namespace PowerPulse.Player
         {
             ApplyBoost(new List<ColorId>());
             ApplyShield(false);
+
+            // Ensure CollectAllColors visual is off on new run
+            if (m_CollectAllColorsVisual != null)
+            {
+                m_CollectAllColorsVisual.SetActive(false);
+            }
 
             if (m_Death != null)
             {

@@ -111,7 +111,7 @@ namespace PowerPulse.VFX
         #region PUBLIC METHODS
 
         /// <summary>
-        /// Plays the clip with the given color. Safe to call every time the clip
+        /// Plays the clip with a single color. Safe to call every time the clip
         /// is retrieved from the pool.
         /// </summary>
         /// <param name="color">Color used when 'Use Event Color' is checked.</param>
@@ -124,6 +124,36 @@ namespace PowerPulse.VFX
 
             ParticleSystem.MainModule main = m_Particles.main;
             main.startColor = m_UseEventColor ? color * m_ColorEmission : m_FixedColor * m_ColorEmission;
+
+            m_Particles.Clear();
+            m_Particles.Play();
+        }
+
+        /// <summary>
+        /// Plays the clip with multiple colors simultaneously.
+        /// Each particle gets a random color from the provided array (via Gradient Random Color mode).
+        /// </summary>
+        /// <param name="colors">Array of colors. Each particle randomly picks one.</param>
+        public void PlayMultiColor(Color[] colors)
+        {
+            if (m_Particles == null || colors == null || colors.Length == 0)
+            {
+                return;
+            }
+
+            ParticleSystem.MainModule main = m_Particles.main;
+
+            // Create a gradient with all colors and set mode to Random Color
+            Gradient gradient = new Gradient();
+            GradientColorKey[] colorKeys = new GradientColorKey[colors.Length];
+            for (int i = 0; i < colors.Length; i++)
+            {
+                colorKeys[i] = new GradientColorKey(colors[i] * m_ColorEmission, (float)i / Mathf.Max(1, colors.Length - 1));
+            }
+            gradient.colorKeys = colorKeys;
+            gradient.mode = GradientMode.Blend;
+
+            main.startColor = new ParticleSystem.MinMaxGradient(gradient);
 
             m_Particles.Clear();
             m_Particles.Play();

@@ -23,13 +23,17 @@ namespace PowerPulse.Core
             [Tooltip("Base color used by materials and VFX.")]
             public Color Color = Color.white;
 
-            [Tooltip("Emission intensity applied to the material.")]
+            [Tooltip("Emission intensity applied to VFX, grid, obstacles, etc. (NOT the player).")]
             public float EmissionIntensity = 1f;
         }
 
         [Header("Colors")]
         [SerializeField, Tooltip("The five official colors of the game.")]
         private List<ColorEntry> m_Colors = new List<ColorEntry>();
+
+        [Header("Player Emission")]
+        [SerializeField, Tooltip("Global emission multiplier for the PLAYER material only. Keeps player glow independent from VFX/grid emission.")]
+        private float m_PlayerEmissionMultiplier = 2f;
 
         [Header("Progression")]
         [SerializeField, Tooltip("Order in which colors are unlocked during a run.")]
@@ -73,6 +77,9 @@ namespace PowerPulse.Core
             ColorEntry entry = GetEntry(id);
             return entry != null ? entry.EmissionIntensity : 1f;
         }
+
+        /// <summary>Returns the global emission multiplier for the player material.</summary>
+        public float PlayerEmissionMultiplier => m_PlayerEmissionMultiplier;
 
         /// <summary>Returns the order in which colors are unlocked.</summary>
         /// <returns>The unlock order.</returns>

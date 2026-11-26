@@ -340,6 +340,7 @@ namespace PowerPulse.Core
         {
             m_DistanceAtLastPortal = m_RunManager.Distance;
             m_DistanceSinceLastSpawn = 0f;
+            m_DistanceSinceLastPowerUp = 0f; // Reset power-up timer too, so no instant spawn after portal
 
             Debug.Log($"[SpawnManager] Portal cooldown opened for {GetPortalCooldown()} m.");
         }
@@ -390,8 +391,9 @@ namespace PowerPulse.Core
                 }
 
                 float obstacleZ = active.Instance.transform.position.z;
+                float dist = Mathf.Abs(obstacleZ - safeZ);
 
-                if (Mathf.Abs(obstacleZ - safeZ) >= clearance)
+                if (dist >= clearance)
                 {
                     continue;
                 }
@@ -756,7 +758,7 @@ namespace PowerPulse.Core
         }
 
         /// <summary>
-        /// Returns valid starting lanes for an obstacle of the given width (in lanes).
+        /// Returns a random valid lane for an obstacle of the given width (in lanes).
         /// Ensures the obstacle fits within the track and leaves at least one free lane.
         /// </summary>
         private int[] GetValidLanesForWidth(int widthInLanes)
@@ -806,6 +808,78 @@ namespace PowerPulse.Core
 
             return validLanes;
         }
+
+        /// <summary>
+                /// Finds a free lane at the given world Z position for a power-up (1 lane wide).
+                /// Checks all active obstacles at that Z and returns a lane that doesn't overlap.
+                /// </summary>
+                /// <param name="z">World Z position to check.</param>
+                /// <returns>Free lane index, or -1 if all lanes occupied.</returns>
+                private int FindFreeLaneAtZ(float z)
+                {
+                    bool[] laneOccupied = new bool[m_LaneCount];
+
+                    for (int i = 0; i < m_ActiveObstacles.Count; i++)
+                    {
+                        ActiveObstacle active = m_ActiveObstacles[i];
+                        if (active.Instance == null)
+                        {
+                            continue;
+                        }
+
+                        float obstacleZ = active.Instance.transform.position.z;
+                        float zDist = Mathf.Abs(obstacleZ - z);
+
+                        // Check if obstacle is close enough in Z to matter (within full clearance)
+                        if (zDist > m_PowerUpObstacleClearance)
+                        {
+                            continue;
+                        }
+
+                        Obstacle obstacle = active.Instance.GetComponent<Obstacle>();
+                        if (obstacle == null)
+                        {
+                            continue;
+                        }
+
+                        // Calculate which lanes this obstacle occupies
+                        int widthInLanes = 1;
+                        if (m_ObstacleWidthCache.TryGetValue(active.Prefab, out int cachedWidth))
+                        {
+                            widthInLanes = cachedWidth;
+                        }
+                        else if (obstacle.Size.x > 0f)
+                        {
+                            widthInLanes = Mathf.Max(1, Mathf.RoundToInt(obstacle.Size.x / m_LaneWidth));
+                        }
+
+                        float obstacleX = active.Instance.transform.position.x;
+                        // Reverse the spawn formula: x = (startLane + (width-1)*0.5 - (laneCount-1)*0.5) * laneWidth
+                        // startLane = x/laneWidth + (laneCount-1)*0.5 - (width-1)*0.5
+                        int startLane = Mathf.RoundToInt(obstacleX / m_LaneWidth + (m_LaneCount - 1) * 0.5f - (widthInLanes - 1) * 0.5f);
+
+                        for (int w = 0; w < widthInLanes; w++)
+                        {
+                            int lane = startLane + w;
+                            if (lane >= 0 && lane < m_LaneCount)
+                            {
+                                laneOccupied[lane] = true;
+                            }
+                        }
+                    }
+
+                    // Find first free lane
+                    for (int lane = 0; lane < m_LaneCount; lane++)
+                    {
+                        if (!laneOccupied[lane])
+                        {
+                            return lane;
+                        }
+                    }
+
+                    Debug.LogWarning($"[SpawnManager] NO FREE LANE at Z={z:0}! All {m_LaneCount} lanes occupied by obstacles near this Z.");
+                    return -1; // All lanes occupied
+                }
 
         /// <summary>
         /// Spawns a single obstacle in a valid lane for its width.
@@ -890,12 +964,11 @@ namespace PowerPulse.Core
                     pool.AddRange(unlocked);
                 }
 
-                List<ColorId> boost = m_ScoreManager.BoostColors;
-
-                if (boost != null && boost.Count > 0)
-                {
-                    pool.AddRange(boost);
-                }
+                // NOTE: Boost colors (CollectAllColors) are NOT added to the spawn pool.
+                // The boost allows the PLAYER to collect those colors, but obstacles
+                // should only spawn from unlocked colors to maintain progression.
+                // If we added boost colors here, obstacles of locked colors would spawn
+                // while the boost is active, breaking the unlock progression.
 
                 return pool[Random.Range(0, pool.Count)];
             }
@@ -1245,7 +1318,14 @@ namespace PowerPulse.Core
         /// <param name="safeZ">World Z already cleared from obstacles and portals.</param>
         private void SpawnPowerUp(float safeZ)
         {
-            int lane = Random.Range(0, m_LaneCount);
+            // Find a lane that is free at this Z position (no obstacle overlapping)
+            int lane = FindFreeLaneAtZ(safeZ);
+            if (lane < 0)
+            {
+                Debug.LogWarning($"[SpawnManager] No free lane at Z={safeZ:0} for power-up. Skipping spawn.");
+                return;
+            }
+
             float x = (lane - (m_LaneCount - 1) * 0.5f) * m_LaneWidth;
 
             List<SO_PowerUpCatalog.PowerUpEntry> available = GetAvailablePowerUps();

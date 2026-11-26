@@ -303,15 +303,58 @@ namespace PowerPulse.CameraSystem
                 return;
             }
 
-            GameObject prefab = entry != null ? entry.VfxPrefab : null;
+            GameObject prefab = null;
+            bool useMultiColor = false;
+            Color[] colors = null;
+
+            if (entry != null)
+            {
+                switch (entry.Type)
+                {
+                    case PowerUpType.Shield:
+                        prefab = m_Config.ShieldVfx ?? entry.VfxPrefab ?? m_Config.PowerUpVfx;
+                        colors = new Color[] { Color.white };
+                        break;
+
+                    case PowerUpType.CollectAllColors:
+                        prefab = m_Config.CollectAllColorsVfx ?? entry.VfxPrefab ?? m_Config.PowerUpVfx;
+                        useMultiColor = true;
+                        // Get all 5 palette colors
+                        if (m_Palette != null)
+                        {
+                            List<ColorId> unlockOrder = m_Palette.GetUnlockOrder();
+                            colors = new Color[unlockOrder.Count];
+                            for (int i = 0; i < unlockOrder.Count; i++)
+                            {
+                                colors[i] = m_Palette.GetColor(unlockOrder[i]);
+                            }
+                        }
+                        else
+                        {
+                            colors = new Color[] { Color.red, Color.magenta, Color.blue, Color.cyan, new Color(0.5f, 0f, 0.5f) }; // fallback 5 colors
+                        }
+                        break;
+
+                    default:
+                        prefab = entry.VfxPrefab ?? m_Config.PowerUpVfx;
+                        break;
+                }
+            }
 
             if (prefab == null)
             {
                 prefab = m_Config.PowerUpVfx;
             }
 
-            Color color = GetPowerUpColor(entry);
-            PlayVfx(prefab, position, color, m_Config.PowerUpPrewarm, m_Config.VfxScale);
+            if (useMultiColor && colors != null && colors.Length > 0)
+            {
+                PlayVfxMultiColor(prefab, position, colors, m_Config.PowerUpPrewarm, m_Config.VfxScale);
+            }
+            else
+            {
+                Color color = GetPowerUpColor(entry);
+                PlayVfx(prefab, position, color, m_Config.PowerUpPrewarm, m_Config.VfxScale);
+            }
         }
 
         private void HandleDashed(int direction)
@@ -428,6 +471,8 @@ namespace PowerPulse.CameraSystem
             Prewarm(m_Config.DeathObstacleExplosionVfx, m_Config.DeathPrewarm);
             Prewarm(m_Config.DashVfx, m_Config.DashPrewarm);
             Prewarm(m_Config.PortalVfx, m_Config.PortalPrewarm);
+            Prewarm(m_Config.ShieldVfx, m_Config.ShieldPrewarm);
+            Prewarm(m_Config.CollectAllColorsVfx, m_Config.CollectAllColorsPrewarm);
             Prewarm(m_Config.PowerUpVfx, m_Config.PowerUpPrewarm);
         }
 
@@ -727,6 +772,45 @@ namespace PowerPulse.CameraSystem
         }
 
         // ===== VFX =====
+
+        /// <summary>
+        /// Spawns a VFX prefab with multiple colors (for CollectAllColors power-up).
+        /// </summary>
+        /// <param name="prefab">VFX prefab.</param>
+        /// <param name="position">World position.</param>
+        /// <param name="colors">Array of colors for multi-color emission.</param>
+        /// <param name="prewarm">How many instances the pool keeps ready.</param>
+        /// <param name="scale">Uniform scale of the instance.</param>
+        /// <param name="useUnscaledTime">If true, timer advances on unscaled time.</param>
+        public void PlayVfxMultiColor(GameObject prefab, Vector3 position, Color[] colors, int prewarm, float scale, bool useUnscaledTime = false)
+        {
+            if (prefab == null || m_Pool == null || colors == null || colors.Length == 0)
+            {
+                return;
+            }
+
+            m_Pool.CreatePool(prefab, prewarm);
+
+            GameObject instance = m_Pool.Get(prefab, position, Quaternion.identity);
+
+            if (instance == null)
+            {
+                return;
+            }
+
+            instance.transform.localScale = Vector3.one * Mathf.Max(0.01f, scale);
+
+            VFXClip clip = instance.GetComponent<VFXClip>();
+
+            if (clip != null)
+            {
+                clip.PlayMultiColor(colors);
+            }
+
+            float duration = clip != null ? clip.Duration : m_Config.DefaultVfxDuration;
+            bool vfxUsesUnscaledTime = useUnscaledTime || (clip != null && clip.UseUnscaledTime);
+            m_ActiveVfx.Add(new ActiveVfx { Prefab = prefab, Instance = instance, Timer = duration, UseUnscaledTime = vfxUsesUnscaledTime });
+        }
 
         /// <summary>
         /// Spawns a VFX prefab at the given position, tints it and schedules its

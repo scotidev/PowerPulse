@@ -95,6 +95,12 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("VFX spawned when the player crosses a portal.")]
         private GameObject m_PortalVfx;
 
+        [SerializeField, Tooltip("VFX for Shield power-up: white explosive burst.")]
+        private GameObject m_ShieldVfx;
+
+        [SerializeField, Tooltip("VFX for CollectAllColors power-up: multi-color explosive burst.")]
+        private GameObject m_CollectAllColorsVfx;
+
         [SerializeField, Tooltip("Fallback VFX for power-ups whose catalog entry has no VfxPrefab assigned.")]
         private GameObject m_PowerUpVfx;
 
@@ -145,6 +151,12 @@ namespace PowerPulse.Core
 
         [SerializeField, Tooltip("How many portal VFX instances are pre-created.")]
         private int m_PortalPrewarm = 2;
+
+        [SerializeField, Tooltip("How many Shield VFX instances are pre-created.")]
+        private int m_ShieldPrewarm = 4;
+
+        [SerializeField, Tooltip("How many CollectAllColors VFX instances are pre-created.")]
+        private int m_CollectAllColorsPrewarm = 4;
 
         [SerializeField, Tooltip("How many power-up VFX instances are pre-created.")]
         private int m_PowerUpPrewarm = 4;
@@ -238,6 +250,12 @@ namespace PowerPulse.Core
         /// <summary>VFX spawned when the player crosses a portal.</summary>
         public GameObject PortalVfx => m_PortalVfx;
 
+        /// <summary>VFX for Shield power-up: white explosive burst.</summary>
+        public GameObject ShieldVfx => m_ShieldVfx;
+
+        /// <summary>VFX for CollectAllColors power-up: multi-color explosive burst.</summary>
+        public GameObject CollectAllColorsVfx => m_CollectAllColorsVfx;
+
         /// <summary>Fallback VFX for power-ups.</summary>
         public GameObject PowerUpVfx => m_PowerUpVfx;
 
@@ -285,6 +303,12 @@ namespace PowerPulse.Core
 
         /// <summary>How many portal VFX instances are pre-created.</summary>
         public int PortalPrewarm => m_PortalPrewarm;
+
+        /// <summary>How many Shield VFX instances are pre-created.</summary>
+        public int ShieldPrewarm => m_ShieldPrewarm;
+
+        /// <summary>How many CollectAllColors VFX instances are pre-created.</summary>
+        public int CollectAllColorsPrewarm => m_CollectAllColorsPrewarm;
 
         /// <summary>How many power-up VFX instances are pre-created.</summary>
         public int PowerUpPrewarm => m_PowerUpPrewarm;

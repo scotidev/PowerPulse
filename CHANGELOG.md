@@ -7,7 +7,41 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
-## Fase 11 — HUD, menus e fluxo de jogo
+## Fase 12 — Polish, balanceamento e correções de spawn
+
+### Added
+
+- **Power-up simplification**: reduzido para 2 tipos essenciais — `Shield` (absorve 1 colisão incompatível) e `CollectAllColors` (permite coletar qualquer cor por duração configurável no Inspector). Removidos `BoostTwoColors`, `BoostThreeColors`, `BoostAllColors`.
+- **Boost early return (FOV + Speed)**: câmera FOV e velocidade da pista começam a voltar ao normal **antes do boost acabar** (tempo configurável `BoostFovReturnTime`, `BoostSpeedReturnTime`, curva `BoostReturnCurve`, multiplicador `BoostSpeedMultiplier` no `Config_VFX`). Dá aviso visual/claro ao jogador.
+- **Obstacle width-aware spawning**: `SpawnManager` lê `Obstacle.Size.x` do prefab (cache no prewarm) e calcula lanes válidas considerando largura real. Obstáculo 1x2 só spawna onde caiba em 2 lanes consecutivas (0+1, 1+2, 2+3, 3+4), mantendo regra de "pelo menos 1 lane livre".
+- **CameraFollow manual mode**: novo campo `Manual YZ Rotation` (default true). Quando ligado, câmera **só segue X do player**; Y, Z e Rotation vêm do Transform (posicionamento direto no Scene View). Adicionado `Vertical Offset` para controle fino da posição vertical do player na tela.
+- **SpawnDistanceAhead no SpawnManager**: novo campo `Spawn Distance Ahead` (default 50m). Obstáculos, portais e power-ups agora spawnam à frente do player (Z=0) em distância fixa configurável, **desacoplado do TrackManager.FrontZ**. Corrige obstáculo aparecendo aos 150m (causado por tiles pré-criados).
+- **InitialSafeDistance movido para Config_GameBalance**: single source of truth. `SpawnManager` lê do asset de balanceamento. Inspector centralizado.
+- **Player air dash**: `Instant Dash In Air` (default true) — dash completa instantaneamente no ar para troca de lane responsiva mid-jump. `Air Dash Speed Multiplier` (default 3x) como fallback.
+
+### Changed
+
+- **Removed Moving/Faster obstacle behaviours**: enum `ObstacleBehaviour` mantém só `Static`, `Tall`, `Wide`. Toda lógica de movimento lateral removida (`MoveObstacleLaterally`, `ChooseBehaviour` Moving/Faster, `GetBehaviourSpeed`, `m_MovingSpeed`, `m_FasterSpeed`, `c_FasterChance`, `MovingEnabled`, `FasterEnabled` no RunManager, milestones `EnableMoving`/`EnableFaster`).
+- **Obstacle component simplificado**: removido `MoveLateral`, `IsMovable`, `MoveSpeed`, `m_Direction`, `c_TrackHalfWidth`, overload `SetBehaviour(behaviour, speed)`. Agora só `SetBehaviour(behaviour)`.
+- **SpawnManager desacoplado do TrackManager**: usa `m_SpawnDistanceAhead` para obstáculos, portais e power-ups. `HasPortalClearance`, `GetSafePortalZ`, `TrySpawnPowerUp` usam distância fixa.
+- **Config_GameBalance limpeza**: removidos `DifficultyMilestone.EnableMoving`, `EnableFaster`, `m_MovingSpeed`, `m_FasterSpeed`, properties `MovingSpeed`, `FasterSpeed`.
+- **RunManager limpeza**: removidas properties `MovingEnabled`, `FasterEnabled`, log de milestone simplificado.
+
+### Fixed
+
+- **Y da câmera descendo progressivamente (3.9→3.2)**: `CameraFollow` agora guarda `m_BaseY`/`m_BaseZ` no `Awake` e **nunca lê do transform** (evita vazamento do shake da CameraFX).
+- **Death camera caindo no infinito**: `CameraFollow` para de seguir quando `GameState == GameOver`.
+- **Primeiro obstáculo aos 150m**: causado por tiles pré-criados no TrackManager (`FrontZ` ~150m). Corrigido com `SpawnDistanceAhead` (50m default).
+- **SRP violado (InitialSafeDistance em 2 lugares)**: consolidado no `Config_GameBalance` apenas.
+- **SpawnSpacing log spam**: removidos logs de debug excessivos.
+
+### Removed
+
+- `ObstacleBehaviour.Moving`, `ObstacleBehaviour.Faster` do enum.
+- `m_MovingSpeed`, `m_FasterSpeed`, `MoveObstacleLaterally`, `ChooseBehaviour` (Moving/Faster), `GetBehaviourSpeed`, `c_FasterChance` do SpawnManager.
+- `EnableMoving`, `EnableFaster` do `DifficultyMilestone` e `MovingEnabled`, `FasterEnabled` do RunManager.
+- `m_MovingSpeed`, `m_FasterSpeed`, `MovingSpeed`, `FasterSpeed` do Config_GameBalance.
+- Logs de debug verbosos do `TrySpawnObstacles` e `SpawnObstacle`.
 
 ### Added
 

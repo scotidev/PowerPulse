@@ -18,7 +18,6 @@ namespace PowerPulse.Core
 
         #endregion
 
-
         #region INITIALIZATION
 
         /// <summary>
@@ -33,6 +32,14 @@ namespace PowerPulse.Core
 
             // --- Initialize the service locator (creates a clean Current) ---
             ServiceLocator.Initialize();
+
+            // --- Load bootstrap config (single hardcoded path) ---
+            BootstrapConfig config = Resources.Load<BootstrapConfig>("BootstrapConfig");
+
+            if (config == null)
+            {
+                Debug.LogError("[Bootstraper] BootstrapConfig not found in Resources. Create one via Create > PowerPulse > Bootstrap Config and place it in any Resources folder.");
+            }
 
             // --- Game Manager ---
             GameManager gameManager = new GameManager();
@@ -60,18 +67,13 @@ namespace PowerPulse.Core
             ApplySettingsToAudio(saveManager, audioManager);
 
             // --- UI Manager ---
-            // Instantiated from a prefab so the panel references are set in the
-            // Inspector. The game runs without UI when the prefab is missing.
-            GameObject uiPrefab = Resources.Load<GameObject>("UI/UIManager");
-
-            if (uiPrefab == null)
+            // Instantiated from a prefab referenced in BootstrapConfig so the panel
+            // references are set in the Inspector. The game runs without UI when
+            // the prefab is missing.
+            if (config != null && config.UIManagerPrefab != null)
             {
-                Debug.LogError("[Bootstraper] UI prefab not found at 'Resources/UI/UIManager'. The game will run without UI.");
-            }
-            else
-            {
-                GameObject uiObject = Object.Instantiate(uiPrefab);
-                uiObject.name = uiPrefab.name;
+                GameObject uiObject = Object.Instantiate(config.UIManagerPrefab);
+                uiObject.name = config.UIManagerPrefab.name;
                 Object.DontDestroyOnLoad(uiObject);
 
                 UIManager uiManager = uiObject.GetComponent<UIManager>();
@@ -84,6 +86,10 @@ namespace PowerPulse.Core
                 {
                     ServiceLocator.Current.Register<IUIManager>(uiManager);
                 }
+            }
+            else
+            {
+                Debug.LogError("[Bootstraper] UI Manager prefab not set in BootstrapConfig. The game will run without UI.");
             }
 
             Debug.Log("[Bootstraper] All persistent services registered.");

@@ -7,7 +7,45 @@ and this project follows Semantic Versioning when versioned releases are created
 
 Entries are grouped by implementation phase, newest first.
 
-## Fase 12 — Polish, balanceamento e correções de spawn
+## Fase 13 — Visual polish, power-up VFX, spawn fixes & emission control
+
+### Added
+
+- **Track grid color sync** (`TrackGridColor`): neon grid lines on track tiles now mirror the player's active color in real-time. During `CollectAllColors` boost, grid flashes through all 5 palette colors with dynamic blink interval (starts fast ~0.08s, slows to ~0.25s) matching `PlayerColor` blink exactly. Uses single shared Material asset — modifying it affects all active + pooled tiles instantly.
+
+- **Power-up dedicated VFX**: new `ShieldVfx` (white explosive burst) and `CollectAllColorsVfx` (multi-color burst) in `Config_VFX`. `VFXClip` gained `PlayMultiColor(Color[])` using Gradient Random Color mode — one VFX instance emits particles of multiple colors simultaneously. `CameraFX.HandlePowerUpCollected` selects correct VFX by `PowerUpType` and passes all palette colors for `CollectAllColors`.
+
+- **CollectAllColors visual on player** (`PlayerColor.m_CollectAllColorsVisual`): optional child GameObject on Player that activates via `SetActive(true/false)` when boost starts/ends. Auto-disables on run reset.
+
+- **Player emission independence** (`SO_ColorPalette.m_PlayerEmissionMultiplier`): global emission multiplier for player material only (default 2x). Decouples player glow from VFX/grid/obstacle emission intensities. `PlayerColor.ApplyColor` now uses this instead of per-color `EmissionIntensity`.
+
+### Changed
+
+- **SpawnManager obstacle color pool**: `GetRandomSpawnColor` no longer adds `BoostColors` to spawn pool. Obstacles only spawn from active + unlocked colors — `CollectAllColors` boost lets player *collect* all colors but doesn't make locked-color obstacles spawn.
+
+- **Power-up spawn clearance**: `FindFreeLaneAtZ` now uses full `m_PowerUpObstacleClearance` (was half). Obstacle lane calculation fixed to inverse spawn formula (`startLane = x/laneWidth + (lanes-1)*0.5 - (width-1)*0.5`), correctly mapping X=-2 → lane 0 (leftmost).
+
+- **Portal cooldown resets power-up timer**: `OpenPortalCooldown` now zeroes `m_DistanceSinceLastPowerUp` so no instant power-up spawn after portal.
+
+- **Obstacle base colors**: fixed ColorPalette entries — all 5 colors now use saturated Base Colors (not pastel/white) so obstacles show solid colored bodies with emission glow, not "white with colored emission".
+
+### Fixed
+
+- **Power-up spawning on top of obstacles**: `FindSafeSpawnZ` (full clearance) + `FindFreeLaneAtZ` (full clearance + correct lane math) now guarantee power-up spawns in free lane at safe Z distance.
+
+- **Power-up spawning immediately after portal**: `OpenPortalCooldown` resets both obstacle and power-up distance accumulators.
+
+- **Grid material URP/Lit error**: `TrackGridColor.CacheOriginalMaterialProperties` now reads `_EmissionColor` (Color) instead of non-existent `_EmissionIntensity` (float) — compatible with URP/Lit shader.
+
+- **Player emission overriding material**: player material emission now controlled by single `PlayerEmissionMultiplier` in ColorPalette, independent of per-color VFX emission.
+
+- **Debug log spam removed**: verbose diagnostic logs in `FindSafeSpawnZ` and `FindFreeLaneAtZ` stripped; only `NO FREE LANE` warning remains.
+
+- **Hardcoded Resources path in Bootstraper**: replaced `Resources.Load("UI/UIManager")` with `BootstrapConfig` ScriptableObject — single hardcoded path loads config asset, prefab reference set in Inspector. Moving UI folder no longer breaks bootstrap.
+
+### Removed
+
+- Hold-to-move (tap-repeat) experiment from `Config_InputSettings` and `PlayerController` — caused double-dash bug, reverted to single-tap-only dash per press.
 
 ### Added
 

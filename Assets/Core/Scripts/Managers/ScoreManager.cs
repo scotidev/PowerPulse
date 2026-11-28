@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using PowerPulse.Audio;
 using PowerPulse.Obstacles;
 
 namespace PowerPulse.Core
@@ -65,6 +66,9 @@ namespace PowerPulse.Core
 
         /// <summary>The obstacle that caused the player's death (for cinematic death).</summary>
         private Obstacle m_KillingObstacle;
+
+        // Audio
+        private IAudioService m_AudioService;
 
         #endregion
 
@@ -142,6 +146,7 @@ namespace PowerPulse.Core
         {
             ActiveColor = m_StartingColor;
             ResolveRunSystems();
+            ResolveAudioService();
 
             // Subscribe to RunManager's run start to reset score for new runs
             if (m_RunManager != null)
@@ -248,6 +253,9 @@ namespace PowerPulse.Core
             OnCollected?.Invoke(obstacle.ActiveColor, points, position);
             ScoreFeedback(position, points);
 
+            // Play collect SFX
+            m_AudioService?.PlaySfx(SfxId.Collect_Correct);
+
             // The obstacle is recycled AFTER the events, so the listeners still
             // see a live transform (VFX position, SFX, HUD update).
             RecycleObstacle(obstacle);
@@ -348,6 +356,10 @@ namespace PowerPulse.Core
             m_BoostDuration = Mathf.Max(0f, duration);
             m_BoostTimer = m_BoostDuration;
             OnBoostChanged?.Invoke(m_BoostColors);
+
+            // Start CollectAllColors tick audio
+            m_AudioService?.StartCollectAllColorsTick();
+            m_AudioService?.PlaySfx(SfxId.PowerUp_CollectAllColors_Collect);
         }
 
         /// <summary>
@@ -407,6 +419,11 @@ namespace PowerPulse.Core
             }
         }
 
+        private void ResolveAudioService()
+        {
+            m_AudioService = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IAudioService>() : null;
+        }
+
         /// <summary>
         /// Builds the initial list of unlocked colors from the palette order.
         /// </summary>
@@ -442,12 +459,20 @@ namespace PowerPulse.Core
 
             m_BoostTimer -= Time.deltaTime;
 
+            // Update tick pitch based on normalized time remaining
+            float normalizedTime = m_BoostDuration > 0f ? 1f - (m_BoostTimer / m_BoostDuration) : 0f;
+            m_AudioService?.SetCollectAllColorsTick(normalizedTime);
+
             if (m_BoostTimer <= 0f)
             {
                 m_BoostTimer = 0f;
                 m_BoostDuration = 0f;
                 m_BoostColors.Clear();
                 OnBoostChanged?.Invoke(m_BoostColors);
+
+                // Stop tick and play end SFX
+                m_AudioService?.StopCollectAllColorsTick();
+                m_AudioService?.PlaySfx(SfxId.CollectAllColors_End);
             }
         }
 
@@ -458,6 +483,9 @@ namespace PowerPulse.Core
         {
             m_HasShield = false;
             OnShieldChanged?.Invoke(m_HasShield);
+
+            // Play shield break SFX
+            m_AudioService?.PlaySfx(SfxId.PowerUp_Shield_Break);
         }
 
         /// <summary>
@@ -478,6 +506,9 @@ namespace PowerPulse.Core
             m_BoostTimer = 0f;
             m_BoostDuration = 0f;
 
+            // Stop any active tick
+            m_AudioService?.StopCollectAllColorsTick();
+
             if (m_Score > m_BestScore)
             {
                 m_BestScore = m_Score;
@@ -487,7 +518,8 @@ namespace PowerPulse.Core
             SaveBestScore();
             OnPlayerDied?.Invoke(m_KillingObstacle);
 
-            Debug.Log($"[ScoreManager] Run ended. Score: {m_Score} | Best: {m_BestScore}");
+            // Play death sequence (crossfade to death music + SFX sequence)
+            m_AudioService?.PlayDeathSequence();
         }
 
         /// <summary>
@@ -498,8 +530,6 @@ namespace PowerPulse.Core
         {
             IGameManager gameManager = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IGameManager>() : null;
             gameManager?.SetState(GameState.GameOver);
-
-            Debug.Log("[ScoreManager] Game state changed to GameOver.");
         }
 
         /// <summary>
@@ -551,7 +581,7 @@ namespace PowerPulse.Core
         /// <param name="points">Points awarded.</param>
         private void ScoreFeedback(Vector3 position, int points)
         {
-            Debug.Log($"[ScoreManager] Collected +{points} at {position} | Score: {m_Score}");
+            // Debug.Log($"[ScoreManager] Collected +{points} at {position} | Score: {m_Score}");
         }
 
         #endregion

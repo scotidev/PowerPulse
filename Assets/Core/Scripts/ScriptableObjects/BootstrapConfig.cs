@@ -1,4 +1,5 @@
 using UnityEngine;
+using PowerPulse.Audio;
 
 namespace PowerPulse.Core
 {
@@ -17,12 +18,19 @@ namespace PowerPulse.Core
         [SerializeField, Tooltip("UI Manager prefab with all panels and references configured in Inspector.")]
         private GameObject m_UIManagerPrefab;
 
+        [Header("Audio")]
+        [SerializeField, Tooltip("Audio catalog with all music tracks and SFX entries.")]
+        private SO_AudioCatalog m_AudioCatalog;
+
         #endregion
 
         #region PROPERTIES
 
         /// <summary>UI Manager prefab with all panels and references configured in Inspector.</summary>
         public GameObject UIManagerPrefab => m_UIManagerPrefab;
+
+        /// <summary>Audio catalog with all music tracks and SFX entries.</summary>
+        public SO_AudioCatalog AudioCatalog => m_AudioCatalog;
 
         #endregion
     }

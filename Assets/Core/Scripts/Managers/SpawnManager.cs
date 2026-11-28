@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using PowerPulse.Audio;
 using PowerPulse.Environment;
 using PowerPulse.Obstacles;
 using PowerPulse.PowerUps;
@@ -194,6 +195,9 @@ namespace PowerPulse.Core
 
         private float m_DistanceSinceLastPowerUp;
 
+        // Audio
+        private IAudioService m_AudioService;
+
         #endregion
 
 
@@ -253,6 +257,8 @@ namespace PowerPulse.Core
             {
                 m_ScoreManager.OnPlayerDied += HandlePlayerDied;
             }
+
+            ResolveAudioService();
         }
 
         private void OnDisable()
@@ -342,7 +348,7 @@ namespace PowerPulse.Core
             m_DistanceSinceLastSpawn = 0f;
             m_DistanceSinceLastPowerUp = 0f; // Reset power-up timer too, so no instant spawn after portal
 
-            Debug.Log($"[SpawnManager] Portal cooldown opened for {GetPortalCooldown()} m.");
+            Debug.LogWarning($"[SpawnManager] Portal cooldown opened for {GetPortalCooldown()} m.");
         }
 
         /// <summary>
@@ -424,7 +430,10 @@ namespace PowerPulse.Core
             OpenPortalCooldown();
             OnPortalCrossed?.Invoke(newColor, portal.transform.position);
 
-            Debug.Log($"[SpawnManager] Player crossed. New active color: {newColor} | Unlocked: {unlocked}");
+            // Play portal SFX
+            m_AudioService?.PlaySfx(SfxId.Portal);
+
+            // Debug.Log($"[SpawnManager] Player crossed. New active color: {newColor} | Unlocked: {unlocked}");
         }
 
         /// <summary>
@@ -552,6 +561,16 @@ namespace PowerPulse.Core
             ApplyPowerUpEffect(entry);
             OnPowerUpCollected?.Invoke(entry, powerUp.transform.position);
 
+            // Play power-up collect SFX based on type
+            if (entry.Type == PowerUpType.Shield)
+            {
+                m_AudioService?.PlaySfx(SfxId.PowerUp_Shield_Collect);
+            }
+            else if (entry.Type == PowerUpType.CollectAllColors)
+            {
+                m_AudioService?.PlaySfx(SfxId.PowerUp_CollectAllColors_Collect);
+            }
+
             GameObject prefab = powerUp.SourcePrefab != null ? powerUp.SourcePrefab : powerUp.gameObject;
             m_Pool.Release(prefab, powerUp.gameObject);
 
@@ -569,6 +588,11 @@ namespace PowerPulse.Core
 
 
         #region PRIVATE METHODS
+
+        private void ResolveAudioService()
+        {
+            m_AudioService = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IAudioService>() : null;
+        }
 
         // ===== OBSTACLES =====
 
@@ -1137,7 +1161,7 @@ namespace PowerPulse.Core
             instance.transform.position = new Vector3(0f, 0f, GetSafePortalZ());
             m_ActivePortals.Add(instance);
 
-            Debug.Log($"[SpawnManager] Portal spawned at {m_RunManager.Distance:0} m with color {portal.TargetColor}.");
+            // Debug.Log($"[SpawnManager] Portal spawned at {m_RunManager.Distance:0} m with color {portal.TargetColor}.");
         }
 
         /// <summary>
@@ -1358,7 +1382,7 @@ namespace PowerPulse.Core
             ActivePowerUp active = new ActivePowerUp { Prefab = entry.Prefab, Instance = instance };
             m_ActivePowerUps.Add(active);
 
-            Debug.Log($"[SpawnManager] Power-up spawned: {entry.Type} at {m_RunManager.Distance:0} m.");
+            // Debug.Log($"[SpawnManager] Power-up spawned: {entry.Type} at {m_RunManager.Distance:0} m.");
         }
 
         /// <summary>
@@ -1463,11 +1487,11 @@ namespace PowerPulse.Core
                             if (!m_ScoreManager.HasShield)
                             {
                                 m_ScoreManager.AddShield();
-                                Debug.Log("[SpawnManager] Shield granted.");
+                                // Debug.Log("[SpawnManager] Shield granted.");
                             }
                             else
                             {
-                                Debug.Log("[SpawnManager] Shield already active: ignored.");
+                                // Debug.Log("[SpawnManager] Shield already active: ignored.");
                             }
                             break;
 
@@ -1479,7 +1503,7 @@ namespace PowerPulse.Core
                                 allColors.Add(color);
                             }
                             m_ScoreManager.ActivateBoost(allColors, entry.Duration);
-                            Debug.Log($"[SpawnManager] CollectAllColors boost granted for {entry.Duration:0.#} s.");
+                            // Debug.Log($"[SpawnManager] CollectAllColors boost granted for {entry.Duration:0.#} s.");
                             break;
                     }
                 }

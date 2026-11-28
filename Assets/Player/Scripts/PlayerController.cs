@@ -3,6 +3,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using PowerPulse.Audio;
 using PowerPulse.Core;
 
 namespace PowerPulse.Player
@@ -76,6 +77,9 @@ namespace PowerPulse.Player
         private bool m_IsGrounded;
         private IGameManager m_GameManager;
 
+        // Audio
+        private IAudioService m_AudioService;
+
         #endregion
 
 
@@ -114,6 +118,8 @@ namespace PowerPulse.Player
             m_JumpAction.Enable();
 
             m_GameManager = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IGameManager>() : null;
+
+            m_AudioService = ServiceLocator.Current != null ? ServiceLocator.Current.Get<IAudioService>() : null;
 
             m_TargetLane = 0;
         }
@@ -182,6 +188,9 @@ namespace PowerPulse.Player
             m_TargetLane = newLane;
             OnDashed?.Invoke(direction);
             StartCoroutine(DashTrailRoutine());
+
+            // Play dash SFX
+            m_AudioService?.PlaySfx(SfxId.Dash);
         }
 
         /// <summary>
@@ -196,6 +205,9 @@ namespace PowerPulse.Player
 
             m_Rb.linearVelocity = new Vector3(m_Rb.linearVelocity.x, m_InputSettings.JumpForce, m_Rb.linearVelocity.z);
             m_IsGrounded = false;
+
+            // Play jump SFX
+            m_AudioService?.PlaySfx(SfxId.Jump);
         }
 
         #endregion

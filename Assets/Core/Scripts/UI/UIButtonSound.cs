@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using PowerPulse.Audio;
 using PowerPulse.Core;
 
 namespace PowerPulse.UI
@@ -41,7 +42,7 @@ namespace PowerPulse.UI
                 return;
             }
 
-            ServiceLocator.Current.Get<IAudioService>()?.PlaySFX(m_ClickClip);
+            ServiceLocator.Current.Get<IAudioService>()?.PlaySfxRaw(m_ClickClip);
         }
 
         #endregion

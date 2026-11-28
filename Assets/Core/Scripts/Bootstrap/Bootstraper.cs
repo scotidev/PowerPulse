@@ -63,6 +63,17 @@ namespace PowerPulse.Core
             GameObject audioObject = new GameObject("Audio Manager");
             AudioManager audioManager = audioObject.AddComponent<AudioManager>();
             Object.DontDestroyOnLoad(audioObject);
+            
+            // Initialize with catalog from BootstrapConfig
+            if (config != null && config.AudioCatalog != null)
+            {
+                audioManager.Initialize(config.AudioCatalog);
+            }
+            else
+            {
+                Debug.LogWarning("[Bootstraper] AudioCatalog not set in BootstrapConfig. AudioManager will not have clips.");
+            }
+            
             ServiceLocator.Current.Register<IAudioService>(audioManager);
             ApplySettingsToAudio(saveManager, audioManager);
 
@@ -91,8 +102,6 @@ namespace PowerPulse.Core
             {
                 Debug.LogError("[Bootstraper] UI Manager prefab not set in BootstrapConfig. The game will run without UI.");
             }
-
-            Debug.Log("[Bootstraper] All persistent services registered.");
 
             // NOTE: Layer 1 (persistent) services are the ONLY ones registered here.
             // Layer 2 systems (RunManager, ScoreManager, ColorManager, SpawnManager,

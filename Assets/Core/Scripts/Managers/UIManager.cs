@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
+using PowerPulse.Audio;
 using PowerPulse.Core;
 using PowerPulse.Obstacles;
 using PowerPulse.Player;
@@ -338,25 +339,25 @@ namespace PowerPulse.Core
                 // Prevent Automatic navigation from causing IndexOutOfRangeException
                 // in Selectable.OnDisable when the button is selected and disabled.
                 m_PauseButton.navigation = new Navigation { mode = Navigation.Mode.None };
-                m_PauseButton.onClick.AddListener(() => GameFlow()?.Pause());
+                m_PauseButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); GameFlow()?.Pause(); });
             }
-            if (m_PlayButton != null) m_PlayButton.onClick.AddListener(StartGame);
-            if (m_OptionsButton != null) m_OptionsButton.onClick.AddListener(ShowOptions);
-            if (m_CreditsButton != null) m_CreditsButton.onClick.AddListener(() => ShowOverlay(UIPanel.Credits));
-            if (m_QuitButton != null) m_QuitButton.onClick.AddListener(QuitGame);
+            if (m_PlayButton != null) m_PlayButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); StartGame(); });
+            if (m_OptionsButton != null) m_OptionsButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); ShowOptions(); });
+            if (m_CreditsButton != null) m_CreditsButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); ShowOverlay(UIPanel.Credits); });
+            if (m_QuitButton != null) m_QuitButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); QuitGame(); });
 
-            if (m_ResumeButton != null) m_ResumeButton.onClick.AddListener(() => GameFlow()?.Resume());
-            if (m_PauseOptionsButton != null) m_PauseOptionsButton.onClick.AddListener(ShowOptions);
-            if (m_PauseMenuButton != null) m_PauseMenuButton.onClick.AddListener(() => GameFlow()?.GoToMenu());
+            if (m_ResumeButton != null) m_ResumeButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); GameFlow()?.Resume(); });
+            if (m_PauseOptionsButton != null) m_PauseOptionsButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); ShowOptions(); });
+            if (m_PauseMenuButton != null) m_PauseMenuButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); GameFlow()?.GoToMenu(); });
 
-            if (m_RetryButton != null) m_RetryButton.onClick.AddListener(() => GameFlow()?.Restart());
-            if (m_GameOverMenuButton != null) m_GameOverMenuButton.onClick.AddListener(() => GameFlow()?.GoToMenu());
+            if (m_RetryButton != null) m_RetryButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); GameFlow()?.Restart(); });
+            if (m_GameOverMenuButton != null) m_GameOverMenuButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); GameFlow()?.GoToMenu(); });
 
-            if (m_ControlsButton != null) m_ControlsButton.onClick.AddListener(() => ShowOverlay(UIPanel.Controls));
-            if (m_OptionsBackButton != null) m_OptionsBackButton.onClick.AddListener(ApplyAndCloseOptions);
-            if (m_ControlsBackButton != null) m_ControlsBackButton.onClick.AddListener(ShowOptions);
+            if (m_ControlsButton != null) m_ControlsButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); ShowOverlay(UIPanel.Controls); });
+            if (m_OptionsBackButton != null) m_OptionsBackButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); ApplyAndCloseOptions(); });
+            if (m_ControlsBackButton != null) m_ControlsBackButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); ShowOptions(); });
 
-            if (m_CreditsSkipButton != null) m_CreditsSkipButton.onClick.AddListener(CloseOverlay);
+            if (m_CreditsSkipButton != null) m_CreditsSkipButton.onClick.AddListener(() => { m_AudioService?.PlaySfx(SfxId.UI_Click); CloseOverlay(); });
 
             BindOptionsInputs();
         }
